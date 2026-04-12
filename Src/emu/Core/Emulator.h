@@ -1,0 +1,17 @@
+#ifndef PROJECT_ETHOS_EMULATOR_H
+#define PROJECT_ETHOS_EMULATOR_H
+
+typedef struct PCB {
+    int ProcessID;
+    enum State { CREATED, READY, RUNNING, BLOCKED, TERMINATED } state;
+    int pc;
+    int bounds[4]; 
+} PCB;
+
+typedef struct Emulator Emulator;
+
+Emulator* createEmulator(void);
+void destroyEmulator(Emulator *emu);
+PCB* getActivePCB(Emulator *emu);
+
+#endif
