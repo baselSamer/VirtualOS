@@ -1,0 +1,4 @@
+C:/Users/Basel/Desktop/os project/Project-Ethos/build/CMakeFiles/ethos_core.dir
+C:/Users/Basel/Desktop/os project/Project-Ethos/build/CMakeFiles/project_ethos.dir
+C:/Users/Basel/Desktop/os project/Project-Ethos/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/Basel/Desktop/os project/Project-Ethos/build/CMakeFiles/ZERO_CHECK.dir

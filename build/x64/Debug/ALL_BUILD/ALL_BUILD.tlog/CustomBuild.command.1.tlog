@@ -1,0 +1,10 @@
+^C:\USERS\BASEL\DESKTOP\OS PROJECT\PROJECT-ETHOS\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" "-SC:/Users/Basel/Desktop/os project/Project-Ethos" "-BC:/Users/Basel/Desktop/os project/Project-Ethos/build" --check-stamp-file "C:/Users/Basel/Desktop/os project/Project-Ethos/build/CMakeFiles/generate.stamp"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
