@@ -1,5 +1,6 @@
 #include "../emu/Mem/Mem.h"
 #include "../emu/FIles/Files.h"
+#include "../emu/Console/Console.h"
 #include "../emu/Core/Logger.h"
 #include "kernal.h"
 #include <stdlib.h>

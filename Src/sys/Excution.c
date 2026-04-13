@@ -1,4 +1,6 @@
 #include "kernal.h"
+#include <stdlib.h>
+#include "../emu/Console/Console.h"
 
 void execute(Emulator *emu, kernal_state *state) {
     if (state -> flags) 

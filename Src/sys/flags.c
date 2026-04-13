@@ -1,4 +1,6 @@
 #include "kernal.h"
+#include <stdlib.h>
+
 int createNewFlags(kernal_state *state) {
     flags *new_flags = malloc(sizeof(flags));
     new_flags->blocked = 0;
