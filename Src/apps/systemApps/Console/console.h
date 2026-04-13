@@ -1,0 +1,6 @@
+#ifndef PROJECT_ETHOS_SYSTEM_CONSOLE_APP_H
+#define PROJECT_ETHOS_SYSTEM_CONSOLE_APP_H
+
+int console(void);
+
+#endif
