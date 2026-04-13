@@ -1,13 +1,20 @@
 param(
-    [string]$GccPath = "c:\Program Files\gcc-15.2.0-gdb-16.3.90.20250511-binutils-2.45-mingw-w64-v13.0.0-ucrt\bin\gcc.exe",
+    [string]$GccPath = "",
     [string]$SourceRoot = "Src",
     [string]$OutputPath = "main.exe"
 )
 
 $ErrorActionPreference = "Stop"
 
-if (-not (Test-Path $GccPath)) {
-    throw "GCC executable not found at: $GccPath"
+if ([string]::IsNullOrWhiteSpace($GccPath)) {
+    $gccCmd = Get-Command gcc -ErrorAction SilentlyContinue
+    if ($gccCmd -ne $null) {
+        $GccPath = $gccCmd.Source
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($GccPath) -or -not (Test-Path $GccPath)) {
+    throw "GCC executable not found. Install a GCC toolchain and make sure 'gcc' is in PATH, or pass -GccPath explicitly."
 }
 
 if (-not (Test-Path $SourceRoot)) {
