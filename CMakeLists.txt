@@ -22,9 +22,9 @@ target_include_directories(ethos_core
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/emu/Core
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/emu/FIles
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/emu/Mem
-        ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/Memory
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/Memory Manger
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/Resouces
-        ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/Scheduler
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/Schduler
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/SysCalls
 )
 
@@ -34,5 +34,13 @@ else()
     target_compile_options(ethos_core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-add_executable(project_ethos Src/main.c)
-target_link_libraries(project_ethos PRIVATE ethos_core)
+set(ETHOS_MAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/Src/main.c)
+if(EXISTS ${ETHOS_MAIN_FILE})
+    file(READ ${ETHOS_MAIN_FILE} ETHOS_MAIN_CONTENTS)
+    string(FIND "${ETHOS_MAIN_CONTENTS}" "main(" ETHOS_MAIN_FN_POS)
+
+    if(NOT ETHOS_MAIN_FN_POS EQUAL -1)
+        add_executable(project_ethos Src/main.c)
+        target_link_libraries(project_ethos PRIVATE ethos_core)
+    endif()
+endif()

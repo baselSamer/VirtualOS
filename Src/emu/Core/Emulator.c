@@ -36,6 +36,3 @@ PCB* getActivePCB(Emulator *emu)
     return emu->activePCB;
 }
 
-void setActivePCB(Emulator *emu, PCB *new_process) {
-    emu->activePCB = new_process;
-}

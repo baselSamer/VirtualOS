@@ -1,3 +1,0 @@
-"C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\project_ethos.dir/objects.a
-C:\MinGW\bin\ar.exe qc CMakeFiles\project_ethos.dir/objects.a @CMakeFiles\project_ethos.dir\objects1.rsp
-C:\MinGW\bin\gcc.exe -Wl,--whole-archive CMakeFiles\project_ethos.dir/objects.a -Wl,--no-whole-archive -o project_ethos.exe -Wl,--out-implib,libproject_ethos.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\project_ethos.dir\linkLibs.rsp

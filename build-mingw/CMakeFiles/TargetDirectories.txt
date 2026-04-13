@@ -1,4 +1,0 @@
-C:/Users/Basel/Desktop/os project/Project-Ethos/build-mingw/CMakeFiles/ethos_core.dir
-C:/Users/Basel/Desktop/os project/Project-Ethos/build-mingw/CMakeFiles/project_ethos.dir
-C:/Users/Basel/Desktop/os project/Project-Ethos/build-mingw/CMakeFiles/edit_cache.dir
-C:/Users/Basel/Desktop/os project/Project-Ethos/build-mingw/CMakeFiles/rebuild_cache.dir
