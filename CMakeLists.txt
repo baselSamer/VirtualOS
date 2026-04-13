@@ -10,7 +10,7 @@ set(ETHOS_CORE_SOURCES
     Src/emu/Console/Console.c
     Src/emu/Core/Emulator.c
     Src/emu/Core/Logger.c
-    Src/emu/FIles/FIles.c
+    Src/emu/Files/Files.c
     Src/emu/Mem/Mem.c
 )
 
@@ -20,11 +20,11 @@ target_include_directories(ethos_core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/emu/Console
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/emu/Core
-        ${CMAKE_CURRENT_SOURCE_DIR}/Src/emu/FIles
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/emu/Files
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/emu/Mem
-        ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/Memory Manger
-        ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/Resouces
-        ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/Schduler
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/Memory
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/Resources
+        ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/Scheduler
         ${CMAKE_CURRENT_SOURCE_DIR}/Src/sys/SysCalls
 )
 
