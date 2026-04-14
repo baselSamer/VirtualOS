@@ -36,3 +36,9 @@ PCB* getActivePCB(Emulator *emu)
     return emu->activePCB;
 }
 
+PCB* setActivePCB(Emulator *emu, PCB *pcb)
+{
+    emu->activePCB = pcb;
+    return emu->activePCB;
+}
+
