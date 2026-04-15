@@ -261,3 +261,15 @@ int swap_in(Emulator *emu, int target_pid) {
 
     return 0;
 }
+
+
+PCB* findPCB_FromID(Emulator *emu,int id){
+    struct MemoryWord *word;
+    for(int i=0;i<40;i++){
+        word = (struct MemoryWord*)readMem(emu, i);
+        if(!(word==NULL)&&word->type==MEM_TYPE_PCB&&word->content.pcb_data.ProcessID==id){
+            return &word->content.pcb_data;
+        }
+    }
+    return NULL;
+}

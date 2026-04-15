@@ -32,4 +32,5 @@ struct MemoryWord
     } content;
 };
 
+PCB* findPCB_FromID(Emulator *emu,int id);
 #endif
