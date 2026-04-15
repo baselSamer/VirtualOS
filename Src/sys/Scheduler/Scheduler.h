@@ -1,6 +1,9 @@
 #ifndef PROJECT_ETHOS_SCHEDULER_H
 #define PROJECT_ETHOS_SCHEDULER_H
 #include <stdbool.h>
+#include "../../emu/Core/Emulator.h"
+
+struct kernal_state;
 
 #define MAX_SIZE 40 
 

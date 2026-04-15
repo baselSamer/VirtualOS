@@ -2,7 +2,7 @@
 #define PROJECT_ETHOS_KERNAL_H
 
 #include "../emu/Core/Emulator.h"
-#include "../Scheduler/Scheduler.h"
+#include "Scheduler/Scheduler.h"
 
 typedef struct Node {
     char *path;

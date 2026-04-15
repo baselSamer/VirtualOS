@@ -1,6 +1,6 @@
 #ifndef PROJECT_ETHOS_MEMORY_H
 #define PROJECT_ETHOS_MEMORY_H
-#include <../../emu/Core/Emulator.h>
+#include "../../emu/Core/Emulator.h"
 
 typedef enum
 {
