@@ -1,6 +1,6 @@
 #ifndef PROJECT_ETHOS_MEMORY_H
 #define PROJECT_ETHOS_MEMORY_H
-#include <Emulator.h>
+#include <../../emu/Core/Emulator.h>
 
 typedef enum
 {
@@ -31,9 +31,5 @@ struct MemoryWord
         struct Instruction inst_data;
     } content;
 };
-
-struct MemoryWord main_memory[40];
-
-// Should i add a function to initialize the memory from Mem.c? Yes
 
 #endif
