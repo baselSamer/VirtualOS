@@ -13,5 +13,6 @@ typedef struct Emulator Emulator;
 Emulator* createEmulator(void);
 void destroyEmulator(Emulator *emu);
 PCB* getActivePCB(Emulator *emu);
+PCB* setActivePCB(Emulator *emu, PCB *pcb);
 
 #endif
