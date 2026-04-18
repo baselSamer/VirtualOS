@@ -106,7 +106,7 @@ void initSchedulerConfig(void) {
     scanf("%d", (int*)&current_algo);
 
     // Only ask for Time Quantum if the algorithm actually uses it
-    if (current_algo == SCHED_RR || current_algo == SCHED_MLFQ) {
+    if (current_algo == SCHED_RR) {
         printf("Enter Time Quantum: ");
         scanf("%d", &time_quantum);
     }
@@ -335,6 +335,117 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
     }
 }
 
-void schedule_MLFQ(Emulator *emu, kernal_state *state) {
+// Trackers specifically for MLFQ
+static int mlfq_time_quantum_counter = 0;
+static int active_process_queue_index = 0; // Tracks 'i' (0, 1, 2, or 3)
 
+void schedule_MLFQ(Emulator *emu, kernal_state *state) {
+    PCB *active_pcb = getActivePCB(emu);
+    int current_time = state->current_tick_count;
+
+    // ==========================================
+    // 1. MANAGE THE RUNNING PROCESS
+    // ==========================================
+    if (active_pcb != NULL) {
+        
+        // CASE A: Terminated
+        if (active_pcb->state == TERMINATED) {
+            printf("[Tick %d] Process %d Terminated. Freeing memory...\n", current_time, active_pcb->ProcessID);
+            for (int i = active_pcb->bounds[0]; i <= active_pcb->bounds[1]; i++) {
+                freeMemLoc(emu, i); 
+            }
+            setActivePCB(emu, NULL);
+            active_pcb = NULL;
+            mlfq_time_quantum_counter = 0;
+        }
+        
+        // CASE B: Blocked by a Mutex (I/O)
+        else if (state->flags->blocked == 1) {
+            printf("[Tick %d] Process %d Blocked! Evicting...\n", current_time, active_pcb->ProcessID);
+            active_pcb->state = BLOCKED;
+            state->flags->blocked = 0;
+            setActivePCB(emu, NULL);
+            active_pcb = NULL;
+            mlfq_time_quantum_counter = 0;
+        }
+        
+        // CASE C: Time Slice Check & DEMOTION
+        else {
+            mlfq_time_quantum_counter++;
+
+            // Calculate q = 2^i based on the queue level index
+            // In C, (1 << index) calculates 2 to the power of 'index'
+            int current_limit = 1 << active_process_queue_index; 
+
+            if (mlfq_time_quantum_counter >= current_limit) {
+                printf("[Tick %d] Process %d (Level %d) exhausted quantum of %d! Preempting...\n", 
+                       current_time, active_pcb->ProcessID, active_process_queue_index, current_limit);
+                
+                active_pcb->state = READY;
+                
+                // Demotion Logic based on the index
+                if (active_process_queue_index == 0) {
+                    enqueue(&state->ready_queue_1, active_pcb->ProcessID); 
+                } 
+                else if (active_process_queue_index == 1) {
+                    enqueue(&state->ready_queue_2, active_pcb->ProcessID); 
+                }
+                else if (active_process_queue_index == 2) {
+                    enqueue(&state->ready_queue_3, active_pcb->ProcessID); 
+                }
+                else if (active_process_queue_index == 3) {
+                    // The last queue uses Round Robin, so it just goes to the back of the same line
+                    enqueue(&state->ready_queue_3, active_pcb->ProcessID); 
+                }
+                
+                setActivePCB(emu, NULL);
+                active_pcb = NULL;
+                mlfq_time_quantum_counter = 0;
+            }
+        }
+    }
+
+    // ==========================================
+    // 2. PICK THE NEXT WINNER (Strict Priority)
+    // ==========================================
+    if (active_pcb == NULL) {
+        int next_pid = -1;
+        
+        // Cascading checks: Always prioritize from highest (0) to lowest (3)
+        if (!isEmpty(&state->ready_queue)) {
+            next_pid = dequeue(&state->ready_queue);
+            active_process_queue_index = 0;
+        } 
+        else if (!isEmpty(&state->ready_queue_1)) {
+            next_pid = dequeue(&state->ready_queue_1);
+            active_process_queue_index = 1;
+        }
+        else if (!isEmpty(&state->ready_queue_2)) {
+            next_pid = dequeue(&state->ready_queue_2);
+            active_process_queue_index = 2;
+        }
+        else if (!isEmpty(&state->ready_queue_3)) {
+            next_pid = dequeue(&state->ready_queue_3);
+            active_process_queue_index = 3;
+        }
+
+        // ==========================================
+        // 3. LOAD THE WINNER INTO THE CPU
+        // ==========================================
+        if (next_pid != -1) {
+            PCB *winning_pcb = findPCB_FromID(emu, next_pid);
+            
+            if (winning_pcb == NULL) {
+                printf("[Tick %d] Process %d is not in RAM. Swapping in...\n", current_time, next_pid);
+                swap_in(emu, next_pid);
+                winning_pcb = findPCB_FromID(emu, next_pid);
+            }
+
+            if (winning_pcb != NULL) {
+                printf("[Tick %d] CPU Given to Process %d from Level %d.\n", current_time, next_pid, active_process_queue_index);
+                winning_pcb->state = RUNNING;
+                setActivePCB(emu, winning_pcb);
+            }
+        }
+    }
 }

@@ -128,23 +128,47 @@ int find_empty_space(Emulator *emu, int required_slots) {
 
 
 // Returns 0 on success, -1 on failure
+// Returns 0 on success, -1 on failure
 int swap_out(Emulator *emu) {
     int victim_start = -1;
     struct MemoryWord *victim_pcb = NULL;
+    
+    // Get the currently running process so we NEVER evict it
+    PCB *active_process = getActivePCB(emu);
+    int active_pid = (active_process != NULL) ? active_process->ProcessID : -1;
 
-    // 1. Find a Victim (Find the first PCB in memory)
+    // PASS 1: Hunt for a BLOCKED process first (They are the best victims!)
     for (int i = 0; i < 40; i++) {
         struct MemoryWord *word = (struct MemoryWord *)readMem(emu, i);
         if (word != NULL && word->type == MEM_TYPE_PCB) {
-            // Found a process!
-            victim_start = i;
-            victim_pcb = word;
-            break;
+            
+            if (word->content.pcb_data.ProcessID == active_pid) continue; // PROTECT THE CPU!
+            
+            if (word->content.pcb_data.state == BLOCKED) {
+                victim_start = i;
+                victim_pcb = word;
+                break;
+            }
+        }
+    }
+
+    // PASS 2: If no blocked process was found, settle for ANY process that isn't running
+    if (victim_start == -1) {
+        for (int i = 0; i < 40; i++) {
+            struct MemoryWord *word = (struct MemoryWord *)readMem(emu, i);
+            if (word != NULL && word->type == MEM_TYPE_PCB) {
+                
+                if (word->content.pcb_data.ProcessID == active_pid) continue; // PROTECT THE CPU!
+                
+                victim_start = i;
+                victim_pcb = word;
+                break;
+            }
         }
     }
 
     if (victim_start == -1) {
-        // Panic: Memory is full but no PCBs were found? Should never happen.
+        printf("Fatal OS Error: Memory is full but no valid victim found to swap out!\n");
         return -1; 
     }
 
@@ -163,7 +187,6 @@ int swap_out(Emulator *emu) {
     }
 
     // Save the total number of slots as the very first thing in the file
-    // (This makes it incredibly easy to read it back during swap_in!)
     int total_slots = victim_end - victim_start + 1;
     fwrite(&total_slots, sizeof(int), 1, swap_file);
 

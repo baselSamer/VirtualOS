@@ -34,6 +34,9 @@ typedef struct kernal_state {
     Mutex *mutexes;
 
     Queue ready_queue;
+    Queue ready_queue_1;
+    Queue ready_queue_2;   
+    Queue ready_queue_3;
     Queue general_blocked_queue;
     
 } kernal_state;
