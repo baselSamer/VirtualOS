@@ -32,5 +32,10 @@ struct MemoryWord
     } content;
 };
 
-PCB* findPCB_FromID(Emulator *emu,int id);
+int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid);
+int find_empty_space(Emulator *emu, int required_slots);
+int swap_out(Emulator *emu);
+int swap_in(Emulator *emu, int target_pid);
+PCB* findPCB_FromID(Emulator *emu, int id);
+
 #endif

@@ -1,14 +1,15 @@
-#include "emu/Core/Emulator_core.h"
-#include "emu/Mem/Mem.h"
-#include "emu/FIles/Files.h"
-#include "emu/Console/Console.h"
-#include "apps/systemApps/Console/console.h"
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-
+#include "emu/Core/Emulator.h"
+#include "sys/kernal.h"
 
 int main(void) {
-    console();
+    // Initialize the emulator
+    Emulator *emu = createEmulator();
+
+    // Start the kernel
+    start(emu);
+
+    // Cleanup the emulator
+    destroyEmulator(emu);
+
     return 0;
 }

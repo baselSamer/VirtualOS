@@ -21,7 +21,7 @@ if (-not (Test-Path $SourceRoot)) {
     throw "Source root not found: $SourceRoot"
 }
 
-$sources = Get-ChildItem -Path $SourceRoot -Recurse -Filter "*.c" | ForEach-Object { $_.FullName }
+$sources = Get-ChildItem -Path $SourceRoot -Recurse -Filter "*.c" | Where-Object { $_.FullName -notlike "*\Tests\*" } | ForEach-Object { $_.FullName }
 
 if (-not $sources -or $sources.Count -eq 0) {
     throw "No C source files found under: $SourceRoot"

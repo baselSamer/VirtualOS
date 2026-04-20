@@ -38,6 +38,15 @@ typedef struct kernal_state {
     Queue ready_queue_2;   
     Queue ready_queue_3;
     Queue general_blocked_queue;
+
+    // Scheduler state
+    SchedulingAlgorithm current_algo;
+    int time_quantum;
+    int rr_time_quantum_counter;
+    int mlfq_time_quantum_counter;
+    int active_process_queue_index;
+    int num_scheduled_processes;
+    ArrivalConfig *scheduled_processes;
     
 } kernal_state;
 

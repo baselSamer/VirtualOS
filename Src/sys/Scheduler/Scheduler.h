@@ -20,6 +20,12 @@ typedef struct Queue {
     int count;
 } Queue;
 
+typedef struct ArrivalConfig {
+    int spawn_time;
+    char* filepath;
+    int pid;
+} ArrivalConfig;
+
 void initQueue(Queue* q);
 bool isEmpty(Queue* q);
 void enqueue(Queue* q, int process_id);
@@ -27,7 +33,7 @@ int dequeue(Queue* q);
 void removeFromGeneralQueue(Queue* q, int process_id);
 
 
-void initSchedulerConfig(void); // Prompts the user for inputs
+void initSchedulerConfig(Emulator *emu, struct kernal_state *state); // Prompts the user for inputs
 void scheduler(Emulator *emu, struct kernal_state *state); // The main router
 
 
