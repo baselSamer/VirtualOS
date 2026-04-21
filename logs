@@ -246,3 +246,54 @@
 [FLAGS] created tick=32
 [KERNEL] Execution loop finished at tick 33
 [KERNEL_STARTUP] start() returned
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL] Execution loop started
+[FLAGS] created tick=0
+[FLAGS] created tick=1
+[FLAGS] created tick=2
+[FLAGS] created tick=3
+[FLAGS] created tick=4
+[FLAGS] created tick=5
+[FLAGS] created tick=6
+[FLAGS] created tick=7
+[FLAGS] created tick=8
+[FLAGS] created tick=9
+[FLAGS] created tick=10
+[FLAGS] created tick=11
+[FLAGS] created tick=12
+[FLAGS] created tick=13
+[FLAGS] created tick=14
+[FLAGS] created tick=15
+[FLAGS] created tick=16
+[FLAGS] created tick=17
+[FLAGS] created tick=18
+[FLAGS] created tick=19
+[FLAGS] created tick=20
+[FLAGS] created tick=21
+[FLAGS] created tick=22
+[FLAGS] created tick=23
+[FLAGS] created tick=24
+[KERNEL] Execution loop finished at tick 25
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL] Execution loop started
+[FLAGS] created tick=0
+[FLAGS] created tick=1
+[FLAGS] created tick=2
+[FLAGS] created tick=3
+[FLAGS] created tick=4
+[FLAGS] created tick=5
+[FLAGS] created tick=6
+[FLAGS] created tick=7
+[FLAGS] created tick=8
+[FLAGS] created tick=9
+[FLAGS] created tick=10
+[FLAGS] created tick=11
+[FLAGS] created tick=12
+[FLAGS] created tick=13
+[FLAGS] created tick=14
+[FLAGS] created tick=15
+[KERNEL] Execution loop finished at tick 16
+[KERNEL_STARTUP] start() returned

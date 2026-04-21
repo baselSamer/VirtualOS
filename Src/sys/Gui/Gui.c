@@ -526,8 +526,21 @@ static void drawSystemTab(HDC hdc, RECT *client) {
         y += 50;
     }
     
-    drawQueue(hdc, x, y, "Blocked Queue:", &g_state->general_blocked_queue, slot_pids);
-    y += 55;
+    drawQueue(hdc, x, y, "Blocked: Console Read", &g_state->mutexes->input_queue, slot_pids);
+    y += 50;
+    drawQueue(hdc, x, y, "Blocked: Console Write", &g_state->mutexes->output_queue, slot_pids);
+    y += 50;
+    
+    Node *curr = g_state->mutexes->file_mutexes;
+    int file_queues_drawn = 0;
+    while (curr) {
+        sprintf(buf, "Blocked: File '%s'", curr->path);
+        drawQueue(hdc, x, y, buf, &curr->blocked_queue, slot_pids);
+        y += 50;
+        curr = curr->next;
+        file_queues_drawn++;
+    }
+    y += 5; // Extra padding
     
     /* HRRN Ratios */
     if (g_state->current_algo == SCHED_HRRN && g_state->ready_queue.count > 0) {

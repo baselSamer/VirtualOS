@@ -1,6 +1,7 @@
 #include "kernal.h"
 #include "../emu/Core/Logger.h"
 #include <stdlib.h>
+#include <string.h>
 
 int createNewFlags(kernal_state *state) {
     if (state == NULL) {
@@ -20,7 +21,13 @@ int createNewFlags(kernal_state *state) {
     }
     
     /* Initialize flags */
-    new_flags->blocked = 0;
+    new_flags->blocked = BLOCKED_NONE;
+    memset(new_flags->blocked_file, 0, 256);
+    
+    new_flags->unblocked_con_read = 0;
+    new_flags->unblocked_con_write = 0;
+    memset(new_flags->unblocked_file, 0, 256);
+    
     state->flags = new_flags;
     
     emulatorLog("[FLAGS] created tick=%d", state->current_tick_count);

@@ -6,6 +6,7 @@
 #include "../../emu/Console/Console.h"
 #include <stdio.h>
 #include <stddef.h>
+#include <string.h>
 
 
 // --- INITIALIZATION ---
@@ -90,6 +91,29 @@ void scheduler(Emulator *emu, kernal_state *state) {
     int current_time = state->current_tick_count;
 
     // ==========================================
+    // PHASE 0: PROCESS UNBLOCK FLAGS
+    // ==========================================
+    if (state->flags->unblocked_con_read) {
+        unblockProcess(state, &state->mutexes->input_queue);
+        state->flags->unblocked_con_read = 0;
+    }
+    if (state->flags->unblocked_con_write) {
+        unblockProcess(state, &state->mutexes->output_queue);
+        state->flags->unblocked_con_write = 0;
+    }
+    if (strlen(state->flags->unblocked_file) > 0) {
+        Node *curr = state->mutexes->file_mutexes;
+        while(curr) {
+            if (strcmp(curr->path, state->flags->unblocked_file) == 0) {
+                unblockProcess(state, &curr->blocked_queue);
+                break;
+            }
+            curr = curr->next;
+        }
+        memset(state->flags->unblocked_file, 0, 256);
+    }
+
+    // ==========================================
     // PHASE 1: CHECK FOR NEW ARRIVALS (Common to all algorithms)
     // ==========================================
     for (int i = 0; i < state->num_scheduled_processes; i++) {
@@ -136,9 +160,22 @@ void schedule_RR(Emulator *emu, kernal_state *state) {
             active_pcb = NULL;
             state->rr_time_quantum_counter = 0; 
         }
-        else if (state->flags->blocked == 1) {
+        else if (state->flags->blocked != BLOCKED_NONE) {
             active_pcb->state = BLOCKED;
-            state->flags->blocked = 0; 
+            
+            Queue *target_q = &state->general_blocked_queue;
+            if (state->flags->blocked == BLOCKED_CON_READ) target_q = &state->mutexes->input_queue;
+            else if (state->flags->blocked == BLOCKED_CON_WRITE) target_q = &state->mutexes->output_queue;
+            else if (state->flags->blocked == BLOCKED_FILE) {
+                Node *curr = state->mutexes->file_mutexes;
+                while(curr) {
+                    if (strcmp(curr->path, state->flags->blocked_file) == 0) { target_q = &curr->blocked_queue; break; }
+                    curr = curr->next;
+                }
+            }
+            blockProcess(state, active_pcb->ProcessID, target_q);
+            
+            state->flags->blocked = BLOCKED_NONE; 
             setActivePCB(emu, NULL);
             active_pcb = NULL;
             state->rr_time_quantum_counter = 0;
@@ -215,10 +252,23 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
         }
         
         // CASE B: The Process was Blocked by a Mutex
-        else if (state->flags->blocked == 1) {
+        else if (state->flags->blocked != BLOCKED_NONE) {
             printToConsole("  | HRRN    | Process %d blocked, evicting", active_pcb->ProcessID);
             active_pcb->state = BLOCKED;
-            state->flags->blocked = 0; 
+            
+            Queue *target_q = &state->general_blocked_queue;
+            if (state->flags->blocked == BLOCKED_CON_READ) target_q = &state->mutexes->input_queue;
+            else if (state->flags->blocked == BLOCKED_CON_WRITE) target_q = &state->mutexes->output_queue;
+            else if (state->flags->blocked == BLOCKED_FILE) {
+                Node *curr = state->mutexes->file_mutexes;
+                while(curr) {
+                    if (strcmp(curr->path, state->flags->blocked_file) == 0) { target_q = &curr->blocked_queue; break; }
+                    curr = curr->next;
+                }
+            }
+            blockProcess(state, active_pcb->ProcessID, target_q);
+            
+            state->flags->blocked = BLOCKED_NONE; 
             setActivePCB(emu, NULL);
             active_pcb = NULL;
         }
@@ -323,10 +373,23 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
         }
         
         // CASE B: Blocked by a Mutex (I/O)
-        else if (state->flags->blocked == 1) {
+        else if (state->flags->blocked != BLOCKED_NONE) {
             printToConsole("  | MLFQ    | Process %d blocked, evicting", active_pcb->ProcessID);
             active_pcb->state = BLOCKED;
-            state->flags->blocked = 0;
+            
+            Queue *target_q = &state->general_blocked_queue;
+            if (state->flags->blocked == BLOCKED_CON_READ) target_q = &state->mutexes->input_queue;
+            else if (state->flags->blocked == BLOCKED_CON_WRITE) target_q = &state->mutexes->output_queue;
+            else if (state->flags->blocked == BLOCKED_FILE) {
+                Node *curr = state->mutexes->file_mutexes;
+                while(curr) {
+                    if (strcmp(curr->path, state->flags->blocked_file) == 0) { target_q = &curr->blocked_queue; break; }
+                    curr = curr->next;
+                }
+            }
+            blockProcess(state, active_pcb->ProcessID, target_q);
+            
+            state->flags->blocked = BLOCKED_NONE;
             setActivePCB(emu, NULL);
             active_pcb = NULL;
             state->mlfq_time_quantum_counter = 0;

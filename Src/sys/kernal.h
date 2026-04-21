@@ -4,9 +4,12 @@
 #include "../emu/Core/Emulator.h"
 #include "Scheduler/Scheduler.h"
 
+typedef enum { BLOCKED_NONE, BLOCKED_CON_READ, BLOCKED_CON_WRITE, BLOCKED_FILE } BlockType;
+
 typedef struct Node {
     char *path;
     int id;
+    Queue blocked_queue;
     struct Node* next;
 } Node;
 
@@ -22,7 +25,12 @@ typedef struct Mutex
 } Mutex;
 
 typedef struct flags {
-    int blocked;
+    BlockType blocked;
+    char blocked_file[256];
+    
+    int unblocked_con_read;
+    int unblocked_con_write;
+    char unblocked_file[256];
 } flags;
 
 typedef struct kernal_state {

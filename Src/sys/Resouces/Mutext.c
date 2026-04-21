@@ -10,8 +10,11 @@ bool fileMutexTaken(kernal_state *state, const char *path) {
     Node *current = mutex->file_mutexes;
     while (current != NULL) {
         if (strcmp(current->path, path) == 0) {
-            emulatorLog("[MUTEX] fileMutexTaken: path='%s' taken by pid=%d", path, current->id);
-            return true;
+            if (current->id != -1) {
+                emulatorLog("[MUTEX] fileMutexTaken: path='%s' taken by pid=%d", path, current->id);
+                return true;
+            }
+            return false;
         }
         current = current->next;
     }
@@ -39,14 +42,21 @@ bool releaseFileMutex(kernal_state *state, const char *path, Emulator *emu) {
     Node *prev = NULL;
     while (current != NULL) {
         if (strcmp(current->path, path) == 0 && current->id == getActivePCB(emu)->ProcessID) {
-            if (prev == NULL) {
-                mutex->file_mutexes = current->next;
+            current->id = -1; // Release but keep node alive
+            
+            // Only free if no one is waiting!
+            if (current->blocked_queue.count == 0) {
+                if (prev == NULL) {
+                    mutex->file_mutexes = current->next;
+                } else {
+                    prev->next = current->next;
+                }
+                free(current->path);
+                free(current);
+                emulatorLog("[MUTEX] releaseFileMutex: pid=%d released path='%s' and node destroyed", getActivePCB(emu)->ProcessID, path);
             } else {
-                prev->next = current->next;
+                emulatorLog("[MUTEX] releaseFileMutex: pid=%d released path='%s' (processes still waiting)", getActivePCB(emu)->ProcessID, path);
             }
-            free(current->path);
-            free(current);
-            emulatorLog("[MUTEX] releaseFileMutex: pid=%d released path='%s'", getActivePCB(emu)->ProcessID, path);
             return true;
         }
         prev = current;
@@ -66,12 +76,26 @@ bool acquireFileMutex(kernal_state *state, const char *path, Emulator *emu) {
         return false; // Mutex is taken by another process
     }
     Mutex *mutex = state->mutexes;
+    
+    // Check if the node already exists but is unowned
+    Node *current = mutex->file_mutexes;
+    while (current != NULL) {
+        if (strcmp(current->path, path) == 0 && current->id == -1) {
+            current->id = getActivePCB(emu)->ProcessID;
+            emulatorLog("[MUTEX] acquireFileMutex: pid=%d claimed existing vacant path='%s'", current->id, path);
+            return true;
+        }
+        current = current->next;
+    }
+    
     Node *new_node = (Node*)malloc(sizeof(Node));
     new_node->path = strdup(path);
     new_node->id = getActivePCB(emu)->ProcessID;
+    initQueue(&new_node->blocked_queue);
+    
     new_node->next = mutex->file_mutexes;
     mutex->file_mutexes = new_node;
-    emulatorLog("[MUTEX] acquireFileMutex: pid=%d acquired path='%s'", new_node->id, path);
+    emulatorLog("[MUTEX] acquireFileMutex: pid=%d acquired NEW path='%s'", new_node->id, path);
     return true;
 }
 
