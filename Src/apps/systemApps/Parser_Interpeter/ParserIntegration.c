@@ -114,7 +114,7 @@ ParsedScript* parseScriptFromBuffer(const char *buffer, size_t buffer_size) {
     buffer_copy[buffer_size] = '\0';
 
     char *saveptr = NULL;
-    char *line = strtok_r(buffer_copy, "\n", &saveptr);
+    char *line = parser_strtok(buffer_copy, "\n", &saveptr);
     int line_number = 0;
     int valid_instructions = 0;
 
@@ -127,7 +127,7 @@ ParsedScript* parseScriptFromBuffer(const char *buffer, size_t buffer_size) {
             }
         }
         line_number++;
-        line = strtok_r(NULL, "\n", &saveptr);
+        line = parser_strtok(NULL, "\n", &saveptr);
     }
 
     free(buffer_copy);

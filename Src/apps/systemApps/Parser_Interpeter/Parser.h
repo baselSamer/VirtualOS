@@ -2,8 +2,43 @@
 #define PROJECT_ETHOS_PARSER_H
 
 #include <stddef.h>
+#include <string.h>
 #include "../../../sys/kernal.h"
 #include "../../../emu/Core/Emulator.h"
+
+/* Cross-platform re-entrant tokenization helper. */
+static inline char* parser_strtok(char *str, const char *delim, char **saveptr) {
+#ifdef _WIN32
+    char *start;
+    char *end;
+
+    if (saveptr == NULL || delim == NULL) {
+        return NULL;
+    }
+
+    start = (str != NULL) ? str : *saveptr;
+    if (start == NULL) {
+        return NULL;
+    }
+
+    start += strspn(start, delim);
+    if (*start == '\0') {
+        *saveptr = start;
+        return NULL;
+    }
+
+    end = start + strcspn(start, delim);
+    if (*end != '\0') {
+        *end = '\0';
+        end++;
+    }
+
+    *saveptr = end;
+    return start;
+#else
+    return strtok_r(str, delim, saveptr);
+#endif
+}
 
 /* Opcode definitions for all supported instructions */
 typedef enum {

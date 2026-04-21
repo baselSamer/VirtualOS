@@ -59,7 +59,7 @@ Instruction parseInstruction(const char *line, int line_number) {
 
     /* Get the opcode (first token) */
     char *saveptr = NULL;
-    char *opcode_str = strtok_r(line_copy, " \t\n\r", &saveptr);
+    char *opcode_str = parser_strtok(line_copy, " \t\n\r", &saveptr);
     
     if (opcode_str == NULL) {
         emulatorLog("[PARSER] parse error line=%d token='%s'", line_number, opcode_str);
@@ -70,7 +70,7 @@ Instruction parseInstruction(const char *line, int line_number) {
     /* Parse based on opcode */
     if (strcmp(opcode_str, "print") == 0) {
         instr.opcode = OP_PRINT;
-        char *arg1 = strtok_r(NULL, " \t\n\r", &saveptr);
+        char *arg1 = parser_strtok(NULL, " \t\n\r", &saveptr);
         if (arg1 == NULL) {
             emulatorLog("[PARSER] parse error line=%d token='%s'", line_number, opcode_str);
             free(line_copy);
@@ -81,8 +81,8 @@ Instruction parseInstruction(const char *line, int line_number) {
     }
     else if (strcmp(opcode_str, "assign") == 0) {
         instr.opcode = OP_ASSIGN;
-        char *arg1 = strtok_r(NULL, " \t\n\r", &saveptr);
-        char *arg2 = strtok_r(NULL, " \t\n\r", &saveptr);
+        char *arg1 = parser_strtok(NULL, " \t\n\r", &saveptr);
+        char *arg2 = parser_strtok(NULL, " \t\n\r", &saveptr);
         if (arg1 == NULL || arg2 == NULL) {
             emulatorLog("[PARSER] parse error line=%d token='%s'", line_number, opcode_str);
             if (arg1) free(arg1);
@@ -93,7 +93,7 @@ Instruction parseInstruction(const char *line, int line_number) {
         instr.arg2 = string_dup(arg2);
         
         if (strcmp(arg2, "readFile") == 0) {
-            char *arg3 = strtok_r(NULL, " \t\n\r", &saveptr);
+            char *arg3 = parser_strtok(NULL, " \t\n\r", &saveptr);
             if (arg3 != NULL) {
                 instr.arg3 = string_dup(arg3);
             }
@@ -103,8 +103,8 @@ Instruction parseInstruction(const char *line, int line_number) {
     }
     else if (strcmp(opcode_str, "writeFile") == 0) {
         instr.opcode = OP_WRITE_FILE;
-        char *arg1 = strtok_r(NULL, " \t\n\r", &saveptr);
-        char *arg2 = strtok_r(NULL, " \t\n\r", &saveptr);
+        char *arg1 = parser_strtok(NULL, " \t\n\r", &saveptr);
+        char *arg2 = parser_strtok(NULL, " \t\n\r", &saveptr);
         if (arg1 == NULL || arg2 == NULL) {
             emulatorLog("[PARSER] parse error line=%d token='%s'", line_number, opcode_str);
             free(line_copy);
@@ -116,7 +116,7 @@ Instruction parseInstruction(const char *line, int line_number) {
     }
     else if (strcmp(opcode_str, "readFile") == 0) {
         instr.opcode = OP_READ_FILE;
-        char *arg1 = strtok_r(NULL, " \t\n\r", &saveptr);
+        char *arg1 = parser_strtok(NULL, " \t\n\r", &saveptr);
         if (arg1 == NULL) {
             emulatorLog("[PARSER] parse error line=%d token='%s'", line_number, opcode_str);
             free(line_copy);
@@ -127,8 +127,8 @@ Instruction parseInstruction(const char *line, int line_number) {
     }
     else if (strcmp(opcode_str, "printFromTo") == 0) {
         instr.opcode = OP_PRINT_FROM_TO;
-        char *arg1 = strtok_r(NULL, " \t\n\r", &saveptr);
-        char *arg2 = strtok_r(NULL, " \t\n\r", &saveptr);
+        char *arg1 = parser_strtok(NULL, " \t\n\r", &saveptr);
+        char *arg2 = parser_strtok(NULL, " \t\n\r", &saveptr);
         if (arg1 == NULL || arg2 == NULL) {
             emulatorLog("[PARSER] parse error line=%d token='%s'", line_number, opcode_str);
             free(line_copy);
@@ -140,7 +140,7 @@ Instruction parseInstruction(const char *line, int line_number) {
     }
     else if (strcmp(opcode_str, "semWait") == 0) {
         instr.opcode = OP_SEM_WAIT;
-        char *resource = strtok_r(NULL, " \t\n\r", &saveptr);
+        char *resource = parser_strtok(NULL, " \t\n\r", &saveptr);
         if (resource == NULL) {
             emulatorLog("[PARSER] parse error line=%d token='%s'", line_number, opcode_str);
             free(line_copy);
@@ -157,7 +157,7 @@ Instruction parseInstruction(const char *line, int line_number) {
     }
     else if (strcmp(opcode_str, "semSignal") == 0) {
         instr.opcode = OP_SEM_SIGNAL;
-        char *resource = strtok_r(NULL, " \t\n\r", &saveptr);
+        char *resource = parser_strtok(NULL, " \t\n\r", &saveptr);
         if (resource == NULL) {
             emulatorLog("[PARSER] parse error line=%d token='%s'", line_number, opcode_str);
             free(line_copy);

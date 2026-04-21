@@ -1,23 +1,12 @@
 {
+    "version": "2.0.0",
     "tasks": [
         {
-            "type": "cppbuild",
-            "label": "C/C++: gcc.exe build project",
-            "command": "c:\\Program Files\\gcc-15.2.0-gdb-16.3.90.20250511-binutils-2.45-mingw-w64-v13.0.0-ucrt\\bin\\gcc.exe",
-            "args": [
-                "-fdiagnostics-color=always",
-                "-g",
-                "${workspaceFolder}\\Src\\main.c",
-                "${workspaceFolder}\\Src\\emu\\Console\\Console.c",
-                "${workspaceFolder}\\Src\\emu\\Core\\Emulator.c",
-                "${workspaceFolder}\\Src\\emu\\Core\\Logger.c",
-                "${workspaceFolder}\\Src\\emu\\FIles\\FIles.c",
-                "${workspaceFolder}\\Src\\emu\\Mem\\Mem.c",
-                "-o",
-                "${workspaceFolder}\\Src\\main.exe"
-            ],
+            "label": "Build Project Ethos",
+            "type": "shell",
+            "command": "${workspaceFolder}\\compile.cmd",
             "options": {
-                "cwd": "c:\\Program Files\\gcc-15.2.0-gdb-16.3.90.20250511-binutils-2.45-mingw-w64-v13.0.0-ucrt\\bin"
+                "cwd": "${workspaceFolder}"
             },
             "problemMatcher": [
                 "$gcc"
@@ -26,8 +15,7 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "detail": "Builds and links the full Project Ethos C sources."
+            "detail": "Runs compile.cmd to compile and link all project sources."
         }
-    ],
-    "version": "2.0.0"
+    ]
 }

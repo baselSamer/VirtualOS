@@ -21,7 +21,7 @@ char* tokenize(const char *input, int token_index) {
 
     /* Split by whitespace */
     for (char *p = line_copy; ; p = NULL) {
-        token = strtok_r(p, " \t\n\r", &saveptr);
+        token = parser_strtok(p, " \t\n\r", &saveptr);
         if (token == NULL) {
             free(line_copy);
             return NULL;
@@ -76,11 +76,11 @@ static int count_tokens(const char *line) {
     
     int count = 0;
     char *saveptr = NULL;
-    char *token = strtok_r(line_copy, " \t\n\r", &saveptr);
+    char *token = parser_strtok(line_copy, " \t\n\r", &saveptr);
     
     while (token != NULL) {
         count++;
-        token = strtok_r(NULL, " \t\n\r", &saveptr);
+        token = parser_strtok(NULL, " \t\n\r", &saveptr);
     }
     
     free(line_copy);
