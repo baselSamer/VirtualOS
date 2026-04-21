@@ -45,7 +45,11 @@ void execute(Emulator *emu, kernal_state *state) {
 int start_exution(Emulator *emu, kernal_state *state) {
     emulatorLog("[KERNEL] Execution loop started");
 
-    initSchedulerConfig(emu, state);
+    if (state->gui_mode) {
+        waitForGuiConfig();
+    } else {
+        initSchedulerConfig(emu, state);
+    }
 
     /* Update GUI after config so it shows initial state */
     if (state->gui_mode) {

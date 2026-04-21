@@ -12,6 +12,9 @@ void updateGui(void);
 /* Block until the user clicks "Step" in the GUI */
 void waitForGuiStep(void);
 
+/* Block until the user finishes the configuration wizard in GUI mode */
+void waitForGuiConfig(void);
+
 /* Close the GUI window and clean up */
 void stopGui(void);
 
