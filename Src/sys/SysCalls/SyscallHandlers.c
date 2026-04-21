@@ -101,7 +101,7 @@ SyscallResultData syscall_assign(
 
     /* Assign logic */
     if (strcmp(instr->arg2, "input") == 0) {
-        printToConsole("Please enter a value");
+        printInputPrompt("Please enter a value");
         char buffer[256];
         if (scanf("%255s", buffer) > 0) {
             set_variable(emu, pid, instr->arg1, buffer);

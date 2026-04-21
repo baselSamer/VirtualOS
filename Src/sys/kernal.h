@@ -56,6 +56,10 @@ typedef struct kernal_state {
     int active_process_queue_index;
     int num_scheduled_processes;
     ArrivalConfig *scheduled_processes;
+
+    // Runtime execution snapshot for GUI/console status panels
+    int current_running_pid;
+    char current_running_command[64];
     
 } kernal_state;
 

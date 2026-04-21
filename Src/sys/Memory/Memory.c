@@ -4,6 +4,12 @@
 #include "../../emu/Files/Files.h" // Assuming you fixed the FIles typo!
 #include "./Memory.h"
 #include "../../emu/Mem/Mem.h"
+#include "../../emu/Console/Console.h"
+
+static void printSwapFormatSummary(const char *swap_filename, int pid, int total_slots) {
+    printToConsole("  | DISK    | PID %d stored in %s", pid, swap_filename);
+    printToConsole("  | DISK    | Format: [int total_slots=%d] + [%d MemoryWord entries]", total_slots, total_slots);
+}
 
 int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid) {
     void *buffer = NULL;
@@ -11,7 +17,7 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid) {
     // 1. Ask the Hardware (Emulator) to read the disk
     size_t file_size = read_raw_data(filepath, &buffer);
     if (file_size == 0 || buffer == NULL) {
-        printf("Error: Could not find file %s\n", filepath);
+        printToConsole("Error: Could not find file %s", filepath);
         return -1;
     }
     
@@ -30,7 +36,7 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid) {
     int total_slots_needed = 1 + 3 + line_count;
     
     if (total_slots_needed > 40) {
-        printf("Error: Process %d (size %d) is strictly larger than physical memory!\n", new_pid, total_slots_needed);
+        printToConsole("Error: Process %d (size %d) is strictly larger than physical memory!", new_pid, total_slots_needed);
         free(buffer);
         return -1;
     }
@@ -40,13 +46,13 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid) {
     
     if (start_index == -1) {
         // MEMORY IS FULL! Write directly to swap file.
-        printf("Memory full! Process %d goes straight to swap disk...\n", new_pid);
+        printToConsole("Memory full! Process %d goes straight to swap disk...", new_pid);
 
         char swap_filename[64];
         sprintf(swap_filename, "swap_pid_%d.bin", new_pid);
         FILE *swap_file = fopen(swap_filename, "wb");
         if (swap_file == NULL) {
-            printf("Fatal Error: Could not create swap file.\n");
+            printToConsole("Fatal Error: Could not create swap file.");
             free(buffer);
             return -1;
         }
@@ -87,6 +93,7 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid) {
         }
 
         fclose(swap_file);
+        printSwapFormatSummary(swap_filename, new_pid, total_slots_needed);
     } else {
         // Space available! Load directly into RAM
         // 4. Allocate PCB (Slot 0)
@@ -199,7 +206,7 @@ int swap_out(Emulator *emu) {
     }
 
     if (victim_start == -1) {
-        printf("Fatal OS Error: Memory is full but no valid victim found to swap out!\n");
+        printToConsole("Fatal OS Error: Memory is full but no valid victim found to swap out!");
         return -1; 
     }
 
@@ -213,7 +220,7 @@ int swap_out(Emulator *emu) {
     FILE *swap_file = fopen(swap_filename, "wb");
     
     if (swap_file == NULL) {
-        printf("OS Error: Could not create swap file for PID %d\n", victim_pid);
+        printToConsole("OS Error: Could not create swap file for PID %d", victim_pid);
         return -1;
     }
 
@@ -234,7 +241,8 @@ int swap_out(Emulator *emu) {
     }
 
     fclose(swap_file);
-    printf("SWAP: Successfully swapped out Process %d to disk.\n", victim_pid);
+    printToConsole("  | SWAP    | Swapped OUT PID %d", victim_pid);
+    printSwapFormatSummary(swap_filename, victim_pid, total_slots);
     
     return 0;
 }
@@ -289,7 +297,7 @@ int swap_in(Emulator *emu, int target_pid) {
     // 1. Open the swap file for reading
     FILE *swap_file = fopen(swap_filename, "rb");
     if (swap_file == NULL) {
-        printf("OS Error: Swap file for PID %d not found.\n", target_pid);
+        printToConsole("OS Error: Swap file for PID %d not found.", target_pid);
         return -1;
     }
 
@@ -301,9 +309,9 @@ int swap_in(Emulator *emu, int target_pid) {
     int new_start_index = find_empty_space(emu, total_slots);
     
     while (new_start_index == -1) {
-        printf("Memory full! Evicting another process to swap in PID %d...\n", target_pid);
+        printToConsole("Memory full! Evicting another process to swap in PID %d...", target_pid);
         if (swap_out(emu) == -1) {
-            printf("Fatal Error: Swap failed during swap_in.\n");
+            printToConsole("Fatal Error: Swap failed during swap_in.");
             fclose(swap_file);
             return -1; // Failed to clear space
         }
@@ -343,12 +351,14 @@ int swap_in(Emulator *emu, int target_pid) {
     }
 
     fclose(swap_file);
+    printToConsole("  | SWAP    | Swapped IN PID %d at RAM index %d", target_pid, new_start_index);
+    printSwapFormatSummary(swap_filename, target_pid, total_slots);
     
     // 5. Cleanup: Delete the swap file from the hard drive since it's back in RAM
     if (remove(swap_filename) == 0) {
-        printf("SWAP: Successfully swapped in Process %d at index %d.\n", target_pid, new_start_index);
+        printToConsole("  | SWAP    | Removed swap file %s after restore", swap_filename);
     } else {
-        printf("Warning: Could not delete swap file %s.\n", swap_filename);
+        printToConsole("Warning: Could not delete swap file %s.", swap_filename);
     }
 
     return 0;

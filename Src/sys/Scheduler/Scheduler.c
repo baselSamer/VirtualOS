@@ -23,7 +23,7 @@ bool isEmpty(Queue* q) {
 
 void enqueue(Queue* q, int process_id) {
     if (q->count == MAX_SIZE) {
-        printf("Error: Queue is full!\n");
+        printToConsole("Error: Queue is full!");
         return;
     }
     q->rear = (q->rear + 1) % MAX_SIZE;
@@ -54,19 +54,81 @@ void removeFromGeneralQueue(Queue* q, int process_id) {
     }
 }
 
+static void queueToText(const Queue *q, char *out, size_t out_size) {
+    if (out_size == 0) return;
+    if (q == NULL) {
+        snprintf(out, out_size, "[]");
+        return;
+    }
+
+    if (q->count == 0) {
+        snprintf(out, out_size, "[]");
+        return;
+    }
+
+    size_t used = 0;
+    int written = snprintf(out, out_size, "[");
+    if (written < 0) {
+        out[0] = '\0';
+        return;
+    }
+    used = (size_t)written;
+
+    for (int i = 0; i < q->count && used < out_size; i++) {
+        int idx = (q->front + i) % MAX_SIZE;
+        written = snprintf(out + used, out_size - used, "%sP%d", i == 0 ? "" : ", ", q->process_ids[idx]);
+        if (written < 0) {
+            break;
+        }
+        used += (size_t)written;
+    }
+
+    if (used < out_size) {
+        snprintf(out + used, out_size - used, "]");
+    } else {
+        out[out_size - 1] = '\0';
+    }
+}
+
+static void printQueueSnapshot(kernal_state *state, const char *event_name) {
+    char l0[192], l1[192], l2[192], l3[192];
+    char bin[192], bout[192], bfile[192], bgeneral[192];
+
+    queueToText(&state->ready_queue, l0, sizeof(l0));
+    queueToText(&state->ready_queue_1, l1, sizeof(l1));
+    queueToText(&state->ready_queue_2, l2, sizeof(l2));
+    queueToText(&state->ready_queue_3, l3, sizeof(l3));
+    queueToText(&state->mutexes->input_queue, bin, sizeof(bin));
+    queueToText(&state->mutexes->output_queue, bout, sizeof(bout));
+    queueToText(&state->mutexes->file_queue, bfile, sizeof(bfile));
+    queueToText(&state->general_blocked_queue, bgeneral, sizeof(bgeneral));
+
+    printToConsole("  | QUEUES  | %s", event_name);
+    if (state->current_algo == SCHED_MLFQ) {
+        printToConsole("  | QUEUES  | L0=%s  L1=%s  L2=%s  L3=%s", l0, l1, l2, l3);
+    } else {
+        printToConsole("  | QUEUES  | Ready=%s", l0);
+    }
+    printToConsole("  | QUEUES  | BlockedIn=%s  BlockedOut=%s  BlockedFile=%s  BlockedAll=%s", bin, bout, bfile, bgeneral);
+}
+
 // --- RESOURCE MANAGEMENT (MUTEX LOGIC) ---
 
 // Adds the process to BOTH queues as requested by the rubric
 void blockProcess(kernal_state *state, int pid, Queue* resourceQueue) {
+    char event[96];
     printToConsole("  | SCHED   | Process %d BLOCKED -> queues", pid);
     
     enqueue(resourceQueue, pid);
     enqueue(&state->general_blocked_queue, pid);
+    snprintf(event, sizeof(event), "Process %d blocked", pid);
+    printQueueSnapshot(state, event);
 }
 
 // Removes from BOTH queues and puts back in ready queue
 void unblockProcess(kernal_state *state, Queue* resourceQueue) {
     if (isEmpty(resourceQueue)) return;
+    char event[96];
 
     // Pop from the specific resource line
     int pid = dequeue(resourceQueue);
@@ -83,6 +145,9 @@ void unblockProcess(kernal_state *state, Queue* resourceQueue) {
         enqueue(&state->ready_queue, pid);
         printToConsole("  | SCHED   | Process %d UNBLOCKED -> ready queue", pid);
     }
+
+    snprintf(event, sizeof(event), "Process %d unblocked", pid);
+    printQueueSnapshot(state, event);
 }
 
 
@@ -119,8 +184,11 @@ void scheduler(Emulator *emu, kernal_state *state) {
             printToConsole("  | SPAWN   | Loading Process %d...", state->scheduled_processes[i].pid);
             
             if (load_process_to_memory(emu, state->scheduled_processes[i].filepath, state->scheduled_processes[i].pid) == 0) {
+                char event[96];
                 enqueue(&state->ready_queue, state->scheduled_processes[i].pid);
                 printToConsole("  | SPAWN   | Process %d -> Ready Queue", state->scheduled_processes[i].pid);
+                snprintf(event, sizeof(event), "Process %d arrived", state->scheduled_processes[i].pid);
+                printQueueSnapshot(state, event);
             }
         }
     }
@@ -139,7 +207,7 @@ void scheduler(Emulator *emu, kernal_state *state) {
             schedule_MLFQ(emu, state);
             break;
         default:
-            printf("Fatal Error: Unknown scheduling algorithm.\n");
+            printToConsole("Fatal Error: Unknown scheduling algorithm.");
             break;
     }
 }
@@ -151,12 +219,16 @@ void schedule_RR(Emulator *emu, kernal_state *state) {
     // 1. MANAGE THE RUNNING PROCESS
     if (active_pcb != NULL) {
         if (active_pcb->state == TERMINATED) {
+            char event[96];
+            printToConsole("  | RR      | Process %d finished, freeing memory", active_pcb->ProcessID);
             for (int i = active_pcb->bounds[0]; i <= active_pcb->bounds[1]; i++) {
                 freeMemLoc(emu, i); 
             }
+            snprintf(event, sizeof(event), "Process %d finished", active_pcb->ProcessID);
             setActivePCB(emu, NULL);
             active_pcb = NULL;
             state->rr_time_quantum_counter = 0; 
+            printQueueSnapshot(state, event);
         }
         else if (state->flags->blocked != BLOCKED_NONE) {
             active_pcb->state = BLOCKED;
@@ -178,12 +250,16 @@ void schedule_RR(Emulator *emu, kernal_state *state) {
         else {
             state->rr_time_quantum_counter++; 
             if (state->rr_time_quantum_counter >= state->time_quantum) {
+                char event[96];
+                int preempted_pid = active_pcb->ProcessID;
                 printToConsole("  | RR      | Process %d quantum expired -> preempted", active_pcb->ProcessID);
                 active_pcb->state = READY;
                 enqueue(&state->ready_queue, active_pcb->ProcessID); 
                 setActivePCB(emu, NULL);
                 active_pcb = NULL;
                 state->rr_time_quantum_counter = 0;
+                snprintf(event, sizeof(event), "Process %d preempted", preempted_pid);
+                printQueueSnapshot(state, event);
             }
         }
     }
@@ -219,6 +295,8 @@ void schedule_RR(Emulator *emu, kernal_state *state) {
         winning_pcb->state = RUNNING;
         setActivePCB(emu, winning_pcb);
         state->rr_time_quantum_counter = 0; 
+        printToConsole("  | RR      | CPU -> Process %d", next_pid);
+        printQueueSnapshot(state, "Process chosen");
     }
 }
 
@@ -237,12 +315,15 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
         
         // CASE A: The Process Terminated
         if (active_pcb->state == TERMINATED) {
+            char event[96];
             printToConsole("  | HRRN    | Process %d terminated, freeing memory", active_pcb->ProcessID);
             for (int i = active_pcb->bounds[0]; i <= active_pcb->bounds[1]; i++) {
                 freeMemLoc(emu, i); 
             }
+            snprintf(event, sizeof(event), "Process %d finished", active_pcb->ProcessID);
             setActivePCB(emu, NULL);
             active_pcb = NULL;
+            printQueueSnapshot(state, event);
         }
         
         // CASE B: The Process was Blocked by a Mutex
@@ -337,6 +418,7 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
                 printToConsole("  | HRRN    | CPU -> Process %d (ratio: %.2f)", winner_pid, highest_ratio);
                 winning_pcb->state = RUNNING;
                 setActivePCB(emu, winning_pcb);
+                printQueueSnapshot(state, "Process chosen");
             }
         }
     }
@@ -353,13 +435,16 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
         
         // CASE A: Terminated
         if (active_pcb->state == TERMINATED) {
+            char event[96];
             printToConsole("  | MLFQ    | Process %d terminated, freeing memory", active_pcb->ProcessID);
             for (int i = active_pcb->bounds[0]; i <= active_pcb->bounds[1]; i++) {
                 freeMemLoc(emu, i); 
             }
+            snprintf(event, sizeof(event), "Process %d finished", active_pcb->ProcessID);
             setActivePCB(emu, NULL);
             active_pcb = NULL;
             state->mlfq_time_quantum_counter = 0;
+            printQueueSnapshot(state, event);
         }
         
         // CASE B: Blocked by a Mutex (I/O)
@@ -390,6 +475,8 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
             int current_limit = 1 << state->active_process_queue_index; 
 
             if (state->mlfq_time_quantum_counter >= current_limit) {
+                char event[96];
+                int demoted_pid = active_pcb->ProcessID;
                 printToConsole("  | MLFQ    | Process %d (L%d) quantum %d expired -> demoted", 
                        active_pcb->ProcessID, state->active_process_queue_index, current_limit);
                 
@@ -413,6 +500,8 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
                 setActivePCB(emu, NULL);
                 active_pcb = NULL;
                 state->mlfq_time_quantum_counter = 0;
+                snprintf(event, sizeof(event), "Process %d quantum expired", demoted_pid);
+                printQueueSnapshot(state, event);
             }
         }
     }
@@ -457,6 +546,7 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
                 printToConsole("  | MLFQ    | CPU -> Process %d from Level %d", next_pid, state->active_process_queue_index);
                 winning_pcb->state = RUNNING;
                 setActivePCB(emu, winning_pcb);
+                printQueueSnapshot(state, "Process chosen");
             }
         }
     }

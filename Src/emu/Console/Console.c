@@ -3,13 +3,35 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include "../Core/Logger.h"
+
+static int g_console_output_passthrough = 1;
+
+void setConsoleOutputPassthrough(int enabled) {
+    g_console_output_passthrough = enabled ? 1 : 0;
+}
 
 void printToConsole(const char* format, ...) {
+    char buffer[1024];
     va_list args;
     va_start(args, format);
-    vprintf(format, args);
-    printf("\n");
+    vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
+
+    if (g_console_output_passthrough) {
+        printf("%s\n", buffer);
+    } else {
+        emulatorLog("%s", buffer);
+    }
+}
+
+void printInputPrompt(const char* format, ...) {
+    char buffer[1024];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    printf("%s\n", buffer);
 }
 
 void readFromConsole(const char* format, ...) {

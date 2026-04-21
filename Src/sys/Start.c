@@ -7,6 +7,7 @@
 #include "Gui/Gui.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 static void printBootLogo(void) {
     printToConsole("");
@@ -62,6 +63,8 @@ static kernal_state* createKernalState(void) {
     state->active_process_queue_index = 0;
     state->num_scheduled_processes = 0;
     state->scheduled_processes = NULL;
+    state->current_running_pid = -1;
+    state->current_running_command[0] = '\0';
 
     return state;
 }

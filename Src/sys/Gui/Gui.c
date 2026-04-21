@@ -1,5 +1,6 @@
 #include "Gui.h"
 #include "../Memory/Memory.h"
+#include "../../emu/Console/Console.h"
 #include "../../emu/Mem/Mem.h"
 #include "../../emu/Core/Logger.h"
 
@@ -20,6 +21,11 @@
 #define GRID_COLS   8
 #define GRID_ROWS   5
 #define STATUS_H    45
+#define SWAP_MAX_SLOTS 40
+#define SWAP_MAX_PIDS 10
+#define SWAP_CELL_W 90
+#define SWAP_CELL_H 54
+#define SWAP_GRID_COLS 8
 
 /* GUI States */
 #define GUI_STATE_WELCOME       -1
@@ -89,7 +95,22 @@ static HANDLE g_gui_thread = NULL;
 static int g_gui_mode = GUI_STATE_WELCOME;
 static int g_active_tab = TAB_MEMORY;
 static int g_hovered_cell = -1;
+static int g_hovered_swap_cell = -1;
+static int g_logs_scroll_offset = 0;
 static volatile int g_running = 1;
+
+static int g_swap_selected_pid = -1;
+static int g_swap_words_count = 0;
+static struct MemoryWord g_swap_words[SWAP_MAX_SLOTS];
+static int g_swap_has_header = 0;
+static long g_swap_file_size = 0;
+static MemoryWordType g_swap_first_entry_type = MEM_TYPE_PCB;
+static int g_swap_grid_x = GRID_X;
+static int g_swap_grid_y = GRID_Y + 130;
+static int g_swap_grid_count = 0;
+static RECT g_swap_pid_chip_rects[SWAP_MAX_PIDS];
+static int g_swap_pid_chip_values[SWAP_MAX_PIDS];
+static int g_swap_pid_chip_count = 0;
 
 static HFONT g_font_normal = NULL;
 static HFONT g_font_bold = NULL;
@@ -135,6 +156,59 @@ static const char* memTypeToStr(MemoryWordType type) {
         case MEM_TYPE_INSTRUCTION: return "INS";
         default:                   return "???";
     }
+}
+
+static COLORREF memTypeToColor(MemoryWordType type) {
+    switch (type) {
+        case MEM_TYPE_PCB:         return RGB(0, 191, 255);
+        case MEM_TYPE_VARIABLE:    return RGB(255, 140, 0);
+        case MEM_TYPE_INSTRUCTION: return RGB(50, 215, 75);
+        default:                   return RGB(90, 90, 90);
+    }
+}
+
+static int loadSwapWordsForPid(int pid) {
+    char filename[64];
+    FILE *f;
+    int total_slots = 0;
+
+    g_swap_words_count = 0;
+    g_swap_has_header = 0;
+    g_swap_file_size = 0;
+    g_swap_first_entry_type = MEM_TYPE_PCB;
+
+    sprintf(filename, "swap_pid_%d.bin", pid);
+    f = fopen(filename, "rb");
+    if (f == NULL) {
+        return 0;
+    }
+
+    fseek(f, 0, SEEK_END);
+    g_swap_file_size = ftell(f);
+    rewind(f);
+
+    if (fread(&total_slots, sizeof(int), 1, f) != 1) {
+        fclose(f);
+        return 0;
+    }
+    g_swap_has_header = 1;
+
+    if (total_slots < 0) total_slots = 0;
+    if (total_slots > SWAP_MAX_SLOTS) total_slots = SWAP_MAX_SLOTS;
+
+    for (int i = 0; i < total_slots; i++) {
+        if (fread(&g_swap_words[i], sizeof(struct MemoryWord), 1, f) != 1) {
+            break;
+        }
+        g_swap_words_count++;
+    }
+
+    if (g_swap_words_count > 0) {
+        g_swap_first_entry_type = g_swap_words[0].type;
+    }
+
+    fclose(f);
+    return 1;
 }
 
 static const char* algoToStr(SchedulingAlgorithm algo) {
@@ -474,38 +548,129 @@ static void drawMemoryTab(HDC hdc, RECT *client) {
 static void drawSwapTab(HDC hdc, RECT *client) {
     char buf[256];
     int y = GRID_Y;
+    int available_pids[SWAP_MAX_PIDS];
+    int available_count = 0;
+    int selected_exists = 0;
+    int chip_x = GRID_X;
+    int chip_y = y + 8;
+    int chip_w = 66;
+    int chip_h = 28;
+    int chip_gap = 10;
+    int chip_line_h = 36;
+    int info_y;
     
     SelectObject(hdc, g_font_bold);
     SetTextColor(hdc, WIN11_TEXT);
     TextOut(hdc, GRID_X, y - 20, "Swap Memory (on disk)", 21);
     
-    SelectObject(hdc, g_font_normal);
-    int found_any = 0;
-    
-    for (int p = 1; p <= 10; p++) {
+    g_swap_pid_chip_count = 0;
+    g_swap_grid_count = 0;
+
+    for (int p = 1; p <= SWAP_MAX_PIDS; p++) {
         char filename[64];
+        FILE *f;
         sprintf(filename, "swap_pid_%d.bin", p);
-        FILE *f = fopen(filename, "rb");
+        f = fopen(filename, "rb");
         if (f != NULL) {
-            found_any = 1;
-            fseek(f, 0, SEEK_END);
-            long size = ftell(f);
             fclose(f);
-            
-            DrawRoundRect(hdc, GRID_X, y, 600, 40, 10, getColorForPid(p), WIN11_BORDER, 1);
-            
-            SetBkMode(hdc, TRANSPARENT);
-            SetTextColor(hdc, WIN11_TEXT);
-            sprintf(buf, "  PID %d  |  File: %s  |  Size: %ld bytes", p, filename, size);
-            TextOut(hdc, GRID_X + 15, y + 10, buf, (int)strlen(buf));
-            
-            y += 50;
+            available_pids[available_count++] = p;
+            if (p == g_swap_selected_pid) selected_exists = 1;
         }
     }
-    
-    if (!found_any) {
+
+    if (available_count == 0) {
+        g_swap_selected_pid = -1;
+        g_hovered_swap_cell = -1;
         SetTextColor(hdc, WIN11_TEXT_SEC);
-        TextOut(hdc, GRID_X + 10, y + 10, "No processes currently swapped to disk.", 39);
+        SelectObject(hdc, g_font_normal);
+        TextOut(hdc, GRID_X + 10, y + 12, "No processes currently swapped to disk.", 39);
+        return;
+    }
+
+    if (!selected_exists) {
+        g_swap_selected_pid = available_pids[0];
+        g_hovered_swap_cell = -1;
+    }
+
+    SelectObject(hdc, g_font_normal);
+    SetTextColor(hdc, WIN11_TEXT_SEC);
+    TextOut(hdc, GRID_X, chip_y - 20, "Swapped PID:", 11);
+
+    for (int i = 0; i < available_count; i++) {
+        int pid = available_pids[i];
+        int w = chip_w;
+        int h = chip_h;
+        int is_selected = (pid == g_swap_selected_pid);
+        COLORREF bg = is_selected ? getColorForPid(pid) : WIN11_BG;
+        COLORREF border = is_selected ? WIN11_ACCENT : WIN11_BORDER;
+        int thickness = is_selected ? 2 : 1;
+
+        if (chip_x + w > GRID_X + 760) {
+            chip_x = GRID_X;
+            chip_y += chip_line_h;
+        }
+
+        DrawRoundRect(hdc, chip_x, chip_y, w, h, 9, bg, border, thickness);
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, WIN11_TEXT);
+        sprintf(buf, "PID %d", pid);
+        TextOut(hdc, chip_x + 12, chip_y + 6, buf, (int)strlen(buf));
+
+        if (g_swap_pid_chip_count < SWAP_MAX_PIDS) {
+            g_swap_pid_chip_rects[g_swap_pid_chip_count].left = chip_x;
+            g_swap_pid_chip_rects[g_swap_pid_chip_count].top = chip_y;
+            g_swap_pid_chip_rects[g_swap_pid_chip_count].right = chip_x + w;
+            g_swap_pid_chip_rects[g_swap_pid_chip_count].bottom = chip_y + h;
+            g_swap_pid_chip_values[g_swap_pid_chip_count] = pid;
+            g_swap_pid_chip_count++;
+        }
+        chip_x += w + chip_gap;
+    }
+
+    loadSwapWordsForPid(g_swap_selected_pid);
+
+    info_y = chip_y + chip_h + 12;
+    DrawRoundRect(hdc, GRID_X, info_y, 760, 62, 10, WIN11_BG, WIN11_BORDER, 1);
+
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, WIN11_TEXT);
+    sprintf(buf, "  PID %d  |  File: swap_pid_%d.bin  |  Size: %ld bytes", g_swap_selected_pid, g_swap_selected_pid, g_swap_file_size);
+    TextOut(hdc, GRID_X + 15, info_y + 10, buf, (int)strlen(buf));
+
+    if (g_swap_has_header) {
+        if (g_swap_words_count > 0) {
+            sprintf(buf, "  Format: [int total_slots=%d] + [%d x MemoryWord], FirstEntry=%s", 
+                    g_swap_words_count, g_swap_words_count, memTypeToStr(g_swap_first_entry_type));
+        } else {
+            sprintf(buf, "  Format: [int total_slots=0] + [0 x MemoryWord]");
+        }
+    } else {
+        sprintf(buf, "  Format: unreadable swap header");
+    }
+    TextOut(hdc, GRID_X + 15, info_y + 34, buf, (int)strlen(buf));
+
+    g_swap_grid_x = GRID_X;
+    g_swap_grid_y = info_y + 74;
+    g_swap_grid_count = g_swap_words_count;
+
+    for (int i = 0; i < g_swap_words_count; i++) {
+        int col = i % SWAP_GRID_COLS;
+        int row = i / SWAP_GRID_COLS;
+        int cell_x = g_swap_grid_x + col * SWAP_CELL_W;
+        int cell_y = g_swap_grid_y + row * SWAP_CELL_H;
+        COLORREF border = (i == g_hovered_swap_cell) ? WIN11_ACCENT : WIN11_BORDER;
+        int thickness = (i == g_hovered_swap_cell) ? 2 : 1;
+
+        DrawRoundRect(hdc, cell_x, cell_y, SWAP_CELL_W - 6, SWAP_CELL_H - 6, 8,
+                      memTypeToColor(g_swap_words[i].type), border, thickness);
+
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, WIN11_TEXT);
+        sprintf(buf, "S%02d", i);
+        TextOut(hdc, cell_x + 8, cell_y + 6, buf, (int)strlen(buf));
+
+        sprintf(buf, "%s", memTypeToStr(g_swap_words[i].type));
+        TextOut(hdc, cell_x + 24, cell_y + 24, buf, (int)strlen(buf));
     }
 }
 
@@ -627,14 +792,24 @@ static void drawSystemTab(HDC hdc, RECT *client) {
 
 /* ========== TAB: SYSTEM LOGS (SIMULATION) ========== */
 static void drawLogsTab(HDC hdc, RECT *client) {
+    char buf[128];
     int x = GRID_X;
     int y = GRID_Y - 50;
+    int logs_top;
+    int logs_bottom;
+    int line_h = 16;
+    int max_visible;
+    int max_offset;
+    int start;
+    int end;
     
     SelectObject(hdc, g_font_title);
     SetTextColor(hdc, WIN11_TEXT);
     TextOut(hdc, x, y, "System Execution Logs", 21);
     
     y += 40;
+    logs_top = y;
+    logs_bottom = client->bottom - STATUS_H - 8;
     SelectObject(hdc, g_font_small); /* Use small font for logs */
     SetTextColor(hdc, RGB(180, 255, 180)); /* Hacker Green log tint */
     
@@ -643,10 +818,28 @@ static void drawLogsTab(HDC hdc, RECT *client) {
         return;
     }
     
-    for (int i=0; i<g_gui_log_count; i++) {
+    max_visible = (logs_bottom - logs_top) / line_h;
+    if (max_visible < 1) max_visible = 1;
+
+    max_offset = g_gui_log_count - max_visible;
+    if (max_offset < 0) max_offset = 0;
+
+    if (g_logs_scroll_offset > max_offset) g_logs_scroll_offset = max_offset;
+    if (g_logs_scroll_offset < 0) g_logs_scroll_offset = 0;
+
+    start = g_gui_log_count - max_visible - g_logs_scroll_offset;
+    if (start < 0) start = 0;
+    end = start + max_visible;
+    if (end > g_gui_log_count) end = g_gui_log_count;
+
+    for (int i = start; i < end; i++) {
         TextOut(hdc, x, y, g_gui_logs[i], strlen(g_gui_logs[i]));
-        y += 16;
+        y += line_h;
     }
+
+    SetTextColor(hdc, WIN11_TEXT_SEC);
+    sprintf(buf, "Mouse wheel/Up/Down to scroll (%d/%d)", g_logs_scroll_offset, max_offset);
+    TextOut(hdc, x, logs_bottom + 2, buf, (int)strlen(buf));
 }
 
 /* ========== STATUS BAR ========== */
@@ -709,10 +902,34 @@ static void drawStatusBar(HDC hdc, RECT *client) {
         }
         SetTextColor(hdc, WIN11_TEXT);
         TextOut(hdc, 10, y + 12, buf, (int)strlen(buf));
+    } else if (g_active_tab == TAB_SWAP && g_swap_selected_pid != -1 && g_hovered_swap_cell >= 0 && g_hovered_swap_cell < g_swap_words_count) {
+        struct MemoryWord *word = &g_swap_words[g_hovered_swap_cell];
+        if (word->type == MEM_TYPE_PCB) {
+            sprintf(buf, "Swap PID %d Slot %d: PCB | State=%s PC=%d Bounds=[%d,%d,%d,%d]",
+                    g_swap_selected_pid, g_hovered_swap_cell,
+                    stateToStr(word->content.pcb_data.state),
+                    word->content.pcb_data.pc,
+                    word->content.pcb_data.bounds[0], word->content.pcb_data.bounds[1],
+                    word->content.pcb_data.bounds[2], word->content.pcb_data.bounds[3]);
+        } else if (word->type == MEM_TYPE_VARIABLE) {
+            sprintf(buf, "Swap PID %d Slot %d: VARIABLE | Name=\"%s\" Value=\"%s\"",
+                    g_swap_selected_pid, g_hovered_swap_cell,
+                    word->content.var_data.name, word->content.var_data.value);
+        } else if (word->type == MEM_TYPE_INSTRUCTION) {
+            sprintf(buf, "Swap PID %d Slot %d: INSTRUCTION | Code=\"%s\"",
+                    g_swap_selected_pid, g_hovered_swap_cell,
+                    word->content.inst_data.code_line);
+        } else {
+            sprintf(buf, "Swap PID %d Slot %d: UNKNOWN", g_swap_selected_pid, g_hovered_swap_cell);
+        }
+        SetTextColor(hdc, WIN11_TEXT);
+        TextOut(hdc, 10, y + 12, buf, (int)strlen(buf));
     } else {
         SetTextColor(hdc, WIN11_TEXT_SEC);
         if (g_active_tab == TAB_MEMORY) {
             TextOut(hdc, 10, y + 12, "Hover over a memory cell to see details", 39);
+        } else if (g_active_tab == TAB_SWAP) {
+            TextOut(hdc, 10, y + 12, "Hover over a swap cell to see details", 37);
         }
     }
 }
@@ -780,8 +997,35 @@ static void paintWindow(HWND hwnd) {
                 SelectObject(memDC, g_font_bold);
                 SetTextColor(memDC, WIN11_TEXT);
                 char tickBuf[64];
+                char runBuf[192];
+                char trimmed_cmd[70];
                 sprintf(tickBuf, "Tick Count: %04d", g_state->current_tick_count);
                 TextOut(memDC, client.right - 180, 20, tickBuf, strlen(tickBuf));
+
+                if (g_state->current_running_command[0] != '\0') {
+                    strncpy(trimmed_cmd, g_state->current_running_command, sizeof(trimmed_cmd) - 1);
+                    trimmed_cmd[sizeof(trimmed_cmd) - 1] = '\0';
+                } else {
+                    strncpy(trimmed_cmd, "IDLE", sizeof(trimmed_cmd) - 1);
+                    trimmed_cmd[sizeof(trimmed_cmd) - 1] = '\0';
+                }
+
+                if (strlen(trimmed_cmd) > 44) {
+                    trimmed_cmd[44] = '.';
+                    trimmed_cmd[45] = '.';
+                    trimmed_cmd[46] = '.';
+                    trimmed_cmd[47] = '\0';
+                }
+
+                if (g_state->current_running_pid > 0) {
+                    sprintf(runBuf, "PID:%d | %s", g_state->current_running_pid, trimmed_cmd);
+                } else {
+                    sprintf(runBuf, "PID:-- | %s", trimmed_cmd);
+                }
+
+                SelectObject(memDC, g_font_normal);
+                SetTextColor(memDC, WIN11_TEXT_SEC);
+                TextOut(memDC, client.right - 620, 22, runBuf, (int)strlen(runBuf));
                 
                 switch (g_active_tab) {
                     case TAB_MEMORY:  drawMemoryTab(memDC, &client);  break;
@@ -970,8 +1214,53 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     g_hovered_cell = new_hover;
                     InvalidateRect(hwnd, NULL, FALSE);
                 }
+            } else if (g_gui_mode == GUI_STATE_SIMULATION && g_active_tab == TAB_SWAP) {
+                int mx = LOWORD(lParam);
+                int my = HIWORD(lParam);
+                int new_hover = -1;
+
+                if (g_swap_grid_count > 0 && mx >= g_swap_grid_x && my >= g_swap_grid_y) {
+                    int col = (mx - g_swap_grid_x) / SWAP_CELL_W;
+                    int row = (my - g_swap_grid_y) / SWAP_CELL_H;
+                    if (col >= 0 && col < SWAP_GRID_COLS && row >= 0) {
+                        new_hover = row * SWAP_GRID_COLS + col;
+                        if (new_hover >= g_swap_grid_count) new_hover = -1;
+                    }
+                }
+
+                if (new_hover != g_hovered_swap_cell) {
+                    g_hovered_swap_cell = new_hover;
+                    InvalidateRect(hwnd, NULL, FALSE);
+                }
             }
             return 0;
+        }
+
+        case WM_MOUSEWHEEL: {
+            if (g_gui_mode == GUI_STATE_SIMULATION && g_active_tab == TAB_LOGS) {
+                short delta = GET_WHEEL_DELTA_WPARAM(wParam);
+                if (delta > 0) g_logs_scroll_offset++;
+                else if (delta < 0 && g_logs_scroll_offset > 0) g_logs_scroll_offset--;
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
+            break;
+        }
+
+        case WM_KEYDOWN: {
+            if (g_gui_mode == GUI_STATE_SIMULATION && g_active_tab == TAB_LOGS) {
+                if (wParam == VK_UP) {
+                    g_logs_scroll_offset++;
+                    InvalidateRect(hwnd, NULL, FALSE);
+                    return 0;
+                }
+                if (wParam == VK_DOWN) {
+                    if (g_logs_scroll_offset > 0) g_logs_scroll_offset--;
+                    InvalidateRect(hwnd, NULL, FALSE);
+                    return 0;
+                }
+            }
+            break;
         }
         
         case WM_LBUTTONDOWN: {
@@ -979,10 +1268,22 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int mx = LOWORD(lParam);
                 int my = HIWORD(lParam);
                 if (mx < 200) {
-                    if (my >= 60 && my < 100) { g_active_tab = TAB_MEMORY; InvalidateRect(hwnd, NULL, FALSE); }
+                    if (my >= 60 && my < 100) { g_active_tab = TAB_MEMORY; g_hovered_swap_cell = -1; InvalidateRect(hwnd, NULL, FALSE); }
                     else if (my >= 100 && my < 140) { g_active_tab = TAB_SWAP; InvalidateRect(hwnd, NULL, FALSE); }
-                    else if (my >= 140 && my < 180) { g_active_tab = TAB_SYSTEM; InvalidateRect(hwnd, NULL, FALSE); }
-                    else if (my >= 180 && my < 220) { g_active_tab = TAB_LOGS; InvalidateRect(hwnd, NULL, FALSE); }
+                    else if (my >= 140 && my < 180) { g_active_tab = TAB_SYSTEM; g_hovered_swap_cell = -1; InvalidateRect(hwnd, NULL, FALSE); }
+                    else if (my >= 180 && my < 220) { g_active_tab = TAB_LOGS; g_hovered_swap_cell = -1; InvalidateRect(hwnd, NULL, FALSE); }
+                } else if (g_active_tab == TAB_SWAP) {
+                    POINT p;
+                    p.x = mx;
+                    p.y = my;
+                    for (int i = 0; i < g_swap_pid_chip_count; i++) {
+                        if (PtInRect(&g_swap_pid_chip_rects[i], p)) {
+                            g_swap_selected_pid = g_swap_pid_chip_values[i];
+                            g_hovered_swap_cell = -1;
+                            InvalidateRect(hwnd, NULL, FALSE);
+                            break;
+                        }
+                    }
                 }
             }
             return 0;
@@ -1067,6 +1368,13 @@ void startGui(Emulator *emu, kernal_state *state) {
     g_cfg_proc_idx = 0;
     
     g_use_gui_logs = 1;
+    setConsoleOutputPassthrough(0);
+    g_logs_scroll_offset = 0;
+    g_hovered_swap_cell = -1;
+    g_swap_selected_pid = -1;
+    g_swap_words_count = 0;
+    g_swap_grid_count = 0;
+    g_swap_pid_chip_count = 0;
     
     g_step_event = CreateEvent(NULL, FALSE, FALSE, NULL);
     g_config_done_event = CreateEvent(NULL, TRUE, FALSE, NULL); // Manual reset event
@@ -1114,5 +1422,7 @@ void stopGui(void) {
         CloseHandle(g_config_done_event);
         g_config_done_event = NULL;
     }
+    g_use_gui_logs = 0;
+    setConsoleOutputPassthrough(1);
     g_hwnd = NULL;
 }
