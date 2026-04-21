@@ -60,7 +60,6 @@
 #define TAB_SWAP    1
 #define TAB_SYSTEM  2
 #define TAB_LOGS    3
-#define TAB_CONSOLE 4
 
 /* PID colors */
 static COLORREF pid_colors[] = {
@@ -110,10 +109,6 @@ static char **g_temp_paths = NULL;
 static HWND hCboAlgo, hTxtQuantum, hTxtProcs, hBtnNext;
 static HWND hTxtArrive, hBtnBrowse, hBtnPrevPro, hBtnNextPro;
 static HWND hTabMem, hTabSwap, hTabSys, hBtnStep;
-
-static HWND hTxtTerminalIn, hBtnTerminalSub;
-static HANDLE g_terminal_event = NULL;
-static char g_terminal_buffer[256] = {0};
 
 /* ========== HELPERS ========== */
 
@@ -379,21 +374,8 @@ static void buildSimulationUI(HWND hwnd) {
     hBtnStep = CreateWindow("BUTTON", "Step >>", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
                  WIN_W - 130, WIN_H - 150, 100, 40, hwnd, (HMENU)ID_BTN_STEP, NULL, NULL);
 
-    // Terminal Inputs (Hidden by default)
-    hTxtTerminalIn = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL,
-                 GRID_X, WIN_H - 150, 500, 30, hwnd, (HMENU)1006, NULL, NULL);
-    hBtnTerminalSub = CreateWindow("BUTTON", "Submit", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP,
-                 GRID_X + 510, WIN_H - 150, 100, 30, hwnd, (HMENU)1007, NULL, NULL);
-
     HFONT sysFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
     SendMessage(hBtnStep, WM_SETFONT, (WPARAM)sysFont, 0);
-    
-    HFONT consolas = CreateFont(18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_MODERN, "Consolas");
-        
-    SendMessage(hTxtTerminalIn, WM_SETFONT, (WPARAM)consolas, 0);
-    SendMessage(hBtnTerminalSub, WM_SETFONT, (WPARAM)sysFont, 0);
 }
 
 /* ========== TAB: MEMORY (SIMULATION) ========== */
@@ -778,8 +760,8 @@ static void paintWindow(HWND hwnd) {
                 TextOut(memDC, 20, 20, "Ethos", 5);
                 
                 SelectObject(memDC, g_font_normal);
-                const char* tab_names[] = { "Memory Metrics", "Disk Swap View", "System Queue", "System Logs", "Console Terminal" };
-                for (int i=0; i<5; i++) {
+                const char* tab_names[] = { "Memory Metrics", "Disk Swap View", "System Queue", "System Logs" };
+                for (int i=0; i<4; i++) {
                     int ty = 60 + (i * 40);
                     if (g_active_tab == i) {
                         HBRUSH actBrush = CreateSolidBrush(WIN11_BG);
@@ -810,15 +792,6 @@ static void paintWindow(HWND hwnd) {
                     case TAB_SWAP:    drawSwapTab(memDC, &client);    break;
                     case TAB_SYSTEM:  drawSystemTab(memDC, &client);  break;
                     case TAB_LOGS:    drawLogsTab(memDC, &client);    break;
-                    case TAB_CONSOLE: drawLogsTab(memDC, &client);    break;
-                }
-                
-                if (g_active_tab == TAB_CONSOLE) {
-                    ShowWindow(hTxtTerminalIn, SW_SHOW);
-                    ShowWindow(hBtnTerminalSub, SW_SHOW);
-                } else {
-                    ShowWindow(hTxtTerminalIn, SW_HIDE);
-                    ShowWindow(hBtnTerminalSub, SW_HIDE);
                 }
             }
             break;
@@ -973,12 +946,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 case ID_TAB_SYS:  g_active_tab = TAB_SYSTEM; InvalidateRect(hwnd, NULL, FALSE); break;
                 case ID_BTN_STEP: SetEvent(g_step_event); break;
                 
-                case 1007: // Terminal Submit
-                    GetWindowText(hTxtTerminalIn, g_terminal_buffer, sizeof(g_terminal_buffer));
-                    SetWindowText(hTxtTerminalIn, "");
-                    SetEvent(g_terminal_event);
-                    break;
-                
                 // EVENTS
                 case ID_CBO_ALGO:
                     if (HIWORD(wParam) == CBN_SELCHANGE) {
@@ -1020,7 +987,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     else if (my >= 100 && my < 140) { g_active_tab = TAB_SWAP; InvalidateRect(hwnd, NULL, FALSE); }
                     else if (my >= 140 && my < 180) { g_active_tab = TAB_SYSTEM; InvalidateRect(hwnd, NULL, FALSE); }
                     else if (my >= 180 && my < 220) { g_active_tab = TAB_LOGS; InvalidateRect(hwnd, NULL, FALSE); }
-                    else if (my >= 220 && my < 260) { g_active_tab = TAB_CONSOLE; InvalidateRect(hwnd, NULL, FALSE); }
                 }
             }
             return 0;
@@ -1107,7 +1073,6 @@ void startGui(Emulator *emu, kernal_state *state) {
     g_use_gui_logs = 1;
     
     g_step_event = CreateEvent(NULL, FALSE, FALSE, NULL);
-    g_terminal_event = CreateEvent(NULL, FALSE, FALSE, NULL);
     g_config_done_event = CreateEvent(NULL, TRUE, FALSE, NULL); // Manual reset event
     
     g_gui_thread = CreateThread(NULL, 0, guiThreadFunc, NULL, 0, NULL);
@@ -1149,31 +1114,9 @@ void stopGui(void) {
         CloseHandle(g_step_event);
         g_step_event = NULL;
     }
-    if (g_terminal_event != NULL) {
-        CloseHandle(g_terminal_event);
-        g_terminal_event = NULL;
-    }
     if (g_config_done_event != NULL) {
         CloseHandle(g_config_done_event);
         g_config_done_event = NULL;
     }
     g_hwnd = NULL;
-}
-
-char* guiWaitForInput(const char* prompt) {
-    if (g_terminal_event == NULL) return NULL;
-    
-    // Switch active tab to Console dynamically
-    g_active_tab = TAB_CONSOLE;
-    emulatorLog("TERMINAL PROMPT: %s", prompt);
-    updateGui();
-    
-    WaitForSingleObject(g_terminal_event, INFINITE);
-    ResetEvent(g_terminal_event);
-    
-    char* copy = strdup(g_terminal_buffer);
-    emulatorLog("USER INPUT: %s", copy);
-    updateGui();
-    
-    return copy;
 }

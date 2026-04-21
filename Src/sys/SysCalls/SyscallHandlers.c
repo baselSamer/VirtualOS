@@ -3,7 +3,6 @@
 #include "../../emu/FIles/Files.h"
 #include "../../emu/Mem/Mem.h"
 #include "../Memory/Memory.h"
-#include "../Gui/Gui.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -102,18 +101,10 @@ SyscallResultData syscall_assign(
 
     /* Assign logic */
     if (strcmp(instr->arg2, "input") == 0) {
-        if (state->gui_mode) {
-            char *ret = guiWaitForInput("Please enter a value");
-            if (ret != NULL) {
-                set_variable(emu, pid, instr->arg1, ret);
-                free(ret);
-            }
-        } else {
-            printToConsole("Please enter a value");
-            char buffer[256];
-            if (scanf("%255s", buffer) > 0) {
-                set_variable(emu, pid, instr->arg1, buffer);
-            }
+        printToConsole("Please enter a value");
+        char buffer[256];
+        if (scanf("%255s", buffer) > 0) {
+            set_variable(emu, pid, instr->arg1, buffer);
         }
     } else if (strcmp(instr->arg2, "readFile") == 0 && instr->arg3 != NULL) {
         const char *filename = instr->arg3;
