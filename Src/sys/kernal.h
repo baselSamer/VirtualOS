@@ -27,6 +27,7 @@ typedef struct flags {
 
 typedef struct kernal_state {
     int current_tick_count;
+    int gui_mode;
     
     flags *flags;
     

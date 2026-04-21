@@ -36,7 +36,7 @@ if ($mainPath) {
 }
 
 $resolvedOut = Join-Path (Get-Location) $OutputPath
-$args = @("-fdiagnostics-color=always", "-g") + $sources + @("-o", $resolvedOut)
+$args = @("-fdiagnostics-color=always", "-g") + $sources + @("-o", $resolvedOut, "-lgdi32")
 
 $quotedArgs = $args | ForEach-Object { '"{0}"' -f $_ }
 $commandString = '"{0}" {1}' -f $GccPath, ($quotedArgs -join " ")

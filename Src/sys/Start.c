@@ -4,6 +4,7 @@
 #include "../emu/Core/Emulator_core.h"
 #include "../emu/Mem/Mem_core.h"
 #include "kernal.h"
+#include "Gui/Gui.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -25,11 +26,9 @@ static void printBootLogo(void) {
 }
 
 static void resetEmulatorMemory(Emulator *emu) {
-    // Free all memory words in the 40-slot RAM
     for (int i = 0; i < 40; i++) {
         freeMemLoc(emu, i);
     }
-    // Clear the active PCB
     setActivePCB(emu, NULL);
 }
 
@@ -37,12 +36,11 @@ static kernal_state* createKernalState(void) {
     kernal_state *state = malloc(sizeof(kernal_state));
 
     state->current_tick_count = 0;
+    state->gui_mode = 0;
 
-    // Initialize flags
     state->flags = NULL;
     createNewFlags(state);
 
-    // Initialize mutexes
     state->mutexes = malloc(sizeof(Mutex));
     state->mutexes->ConsoleRead = -1;
     state->mutexes->ConsoleWrite = -1;
@@ -50,14 +48,12 @@ static kernal_state* createKernalState(void) {
     initQueue(&state->mutexes->input_queue);
     initQueue(&state->mutexes->output_queue);
 
-    // Initialize all ready queues
     initQueue(&state->ready_queue);
     initQueue(&state->ready_queue_1);
     initQueue(&state->ready_queue_2);
     initQueue(&state->ready_queue_3);
     initQueue(&state->general_blocked_queue);
 
-    // Initialize scheduler state (will be configured by console)
     state->current_algo = 0;
     state->time_quantum = 0;
     state->rr_time_quantum_counter = 0;
@@ -85,22 +81,42 @@ static void freeKernalState(kernal_state *state) {
 
 int start(Emulator *emu) {
     emulatorLog("[KERNEL_STARTUP] start() called");
-
-    // Show boot logo
     printBootLogo();
 
-    while (1) {
-        // Create a fresh kernel state
-        kernal_state *state = createKernalState();
-        emulatorLog("[KERNEL_STARTUP] kernel state initialized (tick=%d)", state->current_tick_count);
+    /* Mode selection */
+    printToConsole("  Select mode:");
+    printToConsole("    [1] Terminal");
+    printToConsole("    [2] GUI + Terminal");
+    printToConsole("");
+    printToConsole("  Choice: ");
 
-        // Run the execution loop
+    int mode_choice = 1;
+    readFromConsole("%d", &mode_choice);
+
+    while (1) {
+        kernal_state *state = createKernalState();
+        state->gui_mode = (mode_choice == 2) ? 1 : 0;
+        emulatorLog("[KERNEL_STARTUP] kernel state initialized (tick=%d, gui=%d)", state->current_tick_count, state->gui_mode);
+
+        /* Start GUI if selected */
+        if (state->gui_mode) {
+            startGui(emu, state);
+            printToConsole("");
+            printToConsole("  GUI window opened. Use the Step button to advance ticks.");
+            printToConsole("  Terminal remains active for process logs.");
+            printToConsole("");
+        }
+
         start_exution(emu, state);
 
-        // Cleanup current state
+        /* Stop GUI before cleanup */
+        if (state->gui_mode) {
+            stopGui();
+        }
+
         freeKernalState(state);
 
-        // Ask user if they want to restart
+        /* Ask to restart */
         printToConsole("");
         printToConsole("+--------------------------------------+");
         printToConsole("|         SIMULATION ENDED             |");
@@ -109,7 +125,6 @@ int start(Emulator *emu) {
         printToConsole("  Restart simulation? (y/n): ");
 
         int c;
-        // Flush leftover input
         while ((c = getchar()) != '\n' && c != EOF);
         c = getchar();
 
@@ -120,7 +135,6 @@ int start(Emulator *emu) {
             break;
         }
 
-        // Reset emulator memory for a fresh start
         printToConsole("");
         printToConsole("  Resetting system...");
         printToConsole("");
