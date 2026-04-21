@@ -231,6 +231,10 @@ static void drawQueue(HDC hdc, int x, int y, const char *label, Queue *q, int *s
     }
 }
 
+static int mlfqQuantumForLevel(int level) {
+    return 1 << level;
+}
+
 /* ========== STATE: WELCOME ========== */
 static HWND hBtnStart;
 
@@ -534,10 +538,10 @@ static void drawSystemTab(HDC hdc, RECT *client) {
             sprintf(buf, "  RR Quantum: %d / %d", g_state->rr_time_quantum_counter, g_state->time_quantum);
             TextOut(hdc, x + 5, y + 48, buf, (int)strlen(buf));
         } else if (g_state->current_algo == SCHED_MLFQ) {
-            sprintf(buf, "  MLFQ Level: %d   Quantum: %d / %d", 
+            sprintf(buf, "  MLFQ L%d Quantum: %d / %d", 
                     g_state->active_process_queue_index, 
                     g_state->mlfq_time_quantum_counter,
-                    1 << g_state->active_process_queue_index);
+                    mlfqQuantumForLevel(g_state->active_process_queue_index));
             TextOut(hdc, x + 5, y + 48, buf, (int)strlen(buf));
         }
     } else {
@@ -552,15 +556,15 @@ static void drawSystemTab(HDC hdc, RECT *client) {
     TextOut(hdc, x, y, buf, (int)strlen(buf));
     y += 28;
     
-    drawQueue(hdc, x, y, "Ready Queue:", &g_state->ready_queue, slot_pids);
+    drawQueue(hdc, x, y, "Ready Queue L0 (q=1):", &g_state->ready_queue, slot_pids);
     y += 50;
     
     if (g_state->current_algo == SCHED_MLFQ) {
-        drawQueue(hdc, x, y, "Ready Queue L1 (q=1):", &g_state->ready_queue_1, slot_pids);
+        drawQueue(hdc, x, y, "Ready Queue L1 (q=2):", &g_state->ready_queue_1, slot_pids);
         y += 50;
-        drawQueue(hdc, x, y, "Ready Queue L2 (q=2):", &g_state->ready_queue_2, slot_pids);
+        drawQueue(hdc, x, y, "Ready Queue L2 (q=4):", &g_state->ready_queue_2, slot_pids);
         y += 50;
-        drawQueue(hdc, x, y, "Ready Queue L3 (q=4):", &g_state->ready_queue_3, slot_pids);
+        drawQueue(hdc, x, y, "Ready Queue L3 (q=8):", &g_state->ready_queue_3, slot_pids);
         y += 50;
     }
     
@@ -569,16 +573,8 @@ static void drawSystemTab(HDC hdc, RECT *client) {
     drawQueue(hdc, x, y, "Blocked: Console Write", &g_state->mutexes->output_queue, slot_pids);
     y += 50;
     
-    Node *curr = g_state->mutexes->file_mutexes;
-    int file_queues_drawn = 0;
-    while (curr) {
-        sprintf(buf, "Blocked: File '%s'", curr->path);
-        drawQueue(hdc, x, y, buf, &curr->blocked_queue, slot_pids);
-        y += 50;
-        curr = curr->next;
-        file_queues_drawn++;
-    }
-    y += 5; // Extra padding
+    drawQueue(hdc, x, y, "Blocked: File", &g_state->mutexes->file_queue, slot_pids);
+    y += 50;
     
     /* HRRN Ratios */
     if (g_state->current_algo == SCHED_HRRN && g_state->ready_queue.count > 0) {

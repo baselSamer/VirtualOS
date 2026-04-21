@@ -5,12 +5,11 @@
 #include <stddef.h>
 #include "../kernal.h"
 
-
-/* File Mutex Functions */
-bool fileMutexTaken(kernal_state *state, const char *path);
-bool hasFileMutex(kernal_state *state, const char *path, Emulator *emu);
-bool acquireFileMutex(kernal_state *state, const char *path, Emulator *emu);
-bool releaseFileMutex(kernal_state *state, const char *path, Emulator *emu);
+/* File Mutex Functions (universal single resource) */
+bool FileMutexTaken(kernal_state *state);
+bool hasFileMutex(kernal_state *state, Emulator *emu);
+bool acquireFileMutex(kernal_state *state, Emulator *emu);
+bool releaseFileMutex(kernal_state *state, Emulator *emu);
 
 /* Console Read Mutex Functions */
 bool ConsoleReadMutexTaken(kernal_state *state);

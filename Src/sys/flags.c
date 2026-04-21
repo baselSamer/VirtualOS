@@ -22,11 +22,10 @@ int createNewFlags(kernal_state *state) {
     
     /* Initialize flags */
     new_flags->blocked = BLOCKED_NONE;
-    memset(new_flags->blocked_file, 0, 256);
     
     new_flags->unblocked_con_read = 0;
     new_flags->unblocked_con_write = 0;
-    memset(new_flags->unblocked_file, 0, 256);
+    new_flags->unblocked_file = 0;
     
     state->flags = new_flags;
     

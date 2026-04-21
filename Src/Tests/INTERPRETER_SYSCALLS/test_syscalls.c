@@ -52,7 +52,7 @@ kernal_state* create_test_state() {
     state->mutexes = malloc(sizeof(Mutex));
     state->mutexes->ConsoleRead = -1;
     state->mutexes->ConsoleWrite = -1;
-    state->mutexes->file_mutexes = NULL;
+    state->mutexes->File = -1;
     return state;
 }
 

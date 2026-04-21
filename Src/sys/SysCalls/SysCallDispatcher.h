@@ -3,6 +3,7 @@
 
 #include "../kernal.h"
 #include "../../apps/systemApps/Parser_Interpeter/Parser.h"
+#include "../Resouces/Mutex.h"
 
 /* Syscall return codes */
 typedef enum {
@@ -82,8 +83,5 @@ SyscallResultData syscall_semSignal(
 
 /* Utility functions */
 void freeSyscallResult(SyscallResultData *result);
-int checkFileAccess(kernal_state *state, const char *file_path);
-int acquireFileMutex(kernal_state *state, const char *file_path);
-int releaseFileMutex(kernal_state *state, const char *file_path);
 
 #endif /* PROJECT_ETHOS_SYSCALL_DISPATCHER_H */

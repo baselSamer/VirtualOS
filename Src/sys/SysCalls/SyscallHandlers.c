@@ -111,9 +111,9 @@ SyscallResultData syscall_assign(
         char *vname = get_variable(emu, pid, filename);
         if (vname && strlen(vname) > 0) filename = vname;
 
-        if (!checkFileAccess(state, filename)) {
+        /* Check if process holds the file mutex */
+        if (!hasFileMutex(state, emu)) {
             state->flags->blocked = BLOCKED_FILE;
-            strcpy(state->flags->blocked_file, filename);
             result.blocked = 1;
             result.code = SYSCALL_BLOCKED;
             if (implicit_lock) {
@@ -170,11 +170,9 @@ SyscallResultData syscall_readFile(
     char *v1 = get_variable(emu, pid, instr->arg1);
     const char *resolved_arg1 = (v1 && strlen(v1) > 0) ? v1 : instr->arg1;
 
-    /* Check file mutex */
-    if (!checkFileAccess(state, resolved_arg1)) {
-        /* Resource not available, set blocked flag */
+    /* Check if process holds the file mutex */
+    if (!hasFileMutex(state, emu)) {
         state->flags->blocked = BLOCKED_FILE;
-        strcpy(state->flags->blocked_file, resolved_arg1);
         result.blocked = 1;
         result.code = SYSCALL_BLOCKED;
         return result;
@@ -220,11 +218,9 @@ SyscallResultData syscall_writeFile(
     char *v2 = get_variable(emu, pid, instr->arg2);
     const char *resolved_arg2 = (v2 && strlen(v2) > 0) ? v2 : instr->arg2;
 
-    /* Check file mutex */
-    if (!checkFileAccess(state, resolved_arg1)) {
-        /* Resource not available, set blocked flag */
+    /* Check if process holds the file mutex */
+    if (!hasFileMutex(state, emu)) {
         state->flags->blocked = BLOCKED_FILE;
-        strcpy(state->flags->blocked_file, resolved_arg1);
         result.blocked = 1;
         result.code = SYSCALL_BLOCKED;
         return result;
@@ -346,19 +342,11 @@ SyscallResultData syscall_semWait(
             break;
 
         case RES_FILE:
-            /* For generic file resource, check if any file mutex is available */
-            if (!checkFileAccess(state, "generic_file")) {
-                if (acquireFileMutex(state, "generic_file")) {
-                    state->flags->blocked = BLOCKED_NONE;
-                } else {
-                    state->flags->blocked = BLOCKED_FILE;
-                    strcpy(state->flags->blocked_file, "generic_file");
-                    result.blocked = 1;
-                    result.code = SYSCALL_BLOCKED;
-                }
+            if (state->mutexes->File == -1 || state->mutexes->File == pid) {
+                state->mutexes->File = pid;
+                state->flags->blocked = BLOCKED_NONE;
             } else {
                 state->flags->blocked = BLOCKED_FILE;
-                strcpy(state->flags->blocked_file, "generic_file");
                 result.blocked = 1;
                 result.code = SYSCALL_BLOCKED;
             }
@@ -414,8 +402,9 @@ SyscallResultData syscall_semSignal(
             break;
 
         case RES_FILE:
-            if (releaseFileMutex(state, "generic_file")) {
-                strcpy(state->flags->unblocked_file, "generic_file");
+            if (state->mutexes->File == pid || state->mutexes->File == -1) {
+                state->mutexes->File = -1;
+                state->flags->unblocked_file = 1;
                 state->flags->blocked = BLOCKED_NONE;
             } else {
                 result.code = SYSCALL_ERROR;

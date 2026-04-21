@@ -44,9 +44,10 @@ static kernal_state* createKernalState(void) {
     state->mutexes = malloc(sizeof(Mutex));
     state->mutexes->ConsoleRead = -1;
     state->mutexes->ConsoleWrite = -1;
-    state->mutexes->file_mutexes = NULL;
+    state->mutexes->File = -1;
     initQueue(&state->mutexes->input_queue);
     initQueue(&state->mutexes->output_queue);
+    initQueue(&state->mutexes->file_queue);
 
     initQueue(&state->ready_queue);
     initQueue(&state->ready_queue_1);

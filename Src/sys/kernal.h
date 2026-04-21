@@ -17,20 +17,20 @@ typedef struct Mutex
 {
     int ConsoleRead;
     int ConsoleWrite;
-    Node *file_mutexes;
+    int File;
 
     Queue input_queue;
     Queue output_queue;
+    Queue file_queue;
     
 } Mutex;
 
 typedef struct flags {
     BlockType blocked;
-    char blocked_file[256];
     
     int unblocked_con_read;
     int unblocked_con_write;
-    char unblocked_file[256];
+    int unblocked_file;
 } flags;
 
 typedef struct kernal_state {

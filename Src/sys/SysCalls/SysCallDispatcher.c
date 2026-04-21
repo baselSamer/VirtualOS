@@ -87,21 +87,4 @@ void freeSyscallResult(SyscallResultData *result) {
 }
 
 /* Check if process has access to file */
-int checkFileAccess(kernal_state *state, const char *file_path) {
-    if (state == NULL || file_path == NULL) {
-        return 0;
-    }
-    
-    if (state->mutexes == NULL) {
-        return 0;
-    }
-
-    Node *current = state->mutexes->file_mutexes;
-    while (current != NULL) {
-        if (strcmp(current->path, file_path) == 0) {
-            return 1;
-        }
-        current = current->next;
-    }
-    return 0;
-}
+// Removed, using hasFileMutex from Mutex.h instead

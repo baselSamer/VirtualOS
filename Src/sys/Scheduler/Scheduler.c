@@ -74,10 +74,15 @@ void unblockProcess(kernal_state *state, Queue* resourceQueue) {
     // Fish it out of the general queue
     removeFromGeneralQueue(&state->general_blocked_queue, pid);
     
-    // Move it back to the ready queue so the CPU can run it again
-    enqueue(&state->ready_queue, pid); 
-    
-    printToConsole("  | SCHED   | Process %d UNBLOCKED -> ready queue", pid);
+    // For MLFQ, reinsert at L1 so it does not jump back to the top queue.
+    if (state->current_algo == SCHED_MLFQ) {
+        enqueue(&state->ready_queue_1, pid);
+        printToConsole("  | SCHED   | Process %d UNBLOCKED -> ready queue L1", pid);
+    } else {
+        // RR/HRRN use the single ready queue.
+        enqueue(&state->ready_queue, pid);
+        printToConsole("  | SCHED   | Process %d UNBLOCKED -> ready queue", pid);
+    }
 }
 
 
@@ -101,16 +106,9 @@ void scheduler(Emulator *emu, kernal_state *state) {
         unblockProcess(state, &state->mutexes->output_queue);
         state->flags->unblocked_con_write = 0;
     }
-    if (strlen(state->flags->unblocked_file) > 0) {
-        Node *curr = state->mutexes->file_mutexes;
-        while(curr) {
-            if (strcmp(curr->path, state->flags->unblocked_file) == 0) {
-                unblockProcess(state, &curr->blocked_queue);
-                break;
-            }
-            curr = curr->next;
-        }
-        memset(state->flags->unblocked_file, 0, 256);
+    if (state->flags->unblocked_file) {
+        unblockProcess(state, &state->mutexes->file_queue);
+        state->flags->unblocked_file = 0;
     }
 
     // ==========================================
@@ -167,11 +165,7 @@ void schedule_RR(Emulator *emu, kernal_state *state) {
             if (state->flags->blocked == BLOCKED_CON_READ) target_q = &state->mutexes->input_queue;
             else if (state->flags->blocked == BLOCKED_CON_WRITE) target_q = &state->mutexes->output_queue;
             else if (state->flags->blocked == BLOCKED_FILE) {
-                Node *curr = state->mutexes->file_mutexes;
-                while(curr) {
-                    if (strcmp(curr->path, state->flags->blocked_file) == 0) { target_q = &curr->blocked_queue; break; }
-                    curr = curr->next;
-                }
+                target_q = &state->mutexes->file_queue;
             }
             blockProcess(state, active_pcb->ProcessID, target_q);
             
@@ -260,11 +254,7 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
             if (state->flags->blocked == BLOCKED_CON_READ) target_q = &state->mutexes->input_queue;
             else if (state->flags->blocked == BLOCKED_CON_WRITE) target_q = &state->mutexes->output_queue;
             else if (state->flags->blocked == BLOCKED_FILE) {
-                Node *curr = state->mutexes->file_mutexes;
-                while(curr) {
-                    if (strcmp(curr->path, state->flags->blocked_file) == 0) { target_q = &curr->blocked_queue; break; }
-                    curr = curr->next;
-                }
+                target_q = &state->mutexes->file_queue;
             }
             blockProcess(state, active_pcb->ProcessID, target_q);
             
@@ -381,11 +371,7 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
             if (state->flags->blocked == BLOCKED_CON_READ) target_q = &state->mutexes->input_queue;
             else if (state->flags->blocked == BLOCKED_CON_WRITE) target_q = &state->mutexes->output_queue;
             else if (state->flags->blocked == BLOCKED_FILE) {
-                Node *curr = state->mutexes->file_mutexes;
-                while(curr) {
-                    if (strcmp(curr->path, state->flags->blocked_file) == 0) { target_q = &curr->blocked_queue; break; }
-                    curr = curr->next;
-                }
+                target_q = &state->mutexes->file_queue;
             }
             blockProcess(state, active_pcb->ProcessID, target_q);
             
@@ -400,7 +386,7 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
             state->mlfq_time_quantum_counter++;
 
             // Calculate q = 2^i based on the queue level index
-            // In C, (1 << index) calculates 2 to the power of 'index'
+            // Level 0 -> q=1, Level 1 -> q=2, Level 2 -> q=4
             int current_limit = 1 << state->active_process_queue_index; 
 
             if (state->mlfq_time_quantum_counter >= current_limit) {

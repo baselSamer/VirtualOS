@@ -1,0 +1,86 @@
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=0)
+[KERNEL] Execution loop started
+[FLAGS] created tick=0
+[SYSCALL] pid=1 call=SEM_WAIT blocked=0 resource=userInput
+[FLAGS] created tick=1
+[SYSCALL] pid=1 call=ASSIGN blocked=0 var=a
+[FLAGS] created tick=2
+[SYSCALL] pid=1 call=ASSIGN blocked=0 var=b
+[FLAGS] created tick=3
+[SYSCALL] pid=1 call=SEM_SIGNAL blocked=0 resource=userInput
+[FLAGS] created tick=4
+[SYSCALL] pid=1 call=SEM_WAIT blocked=0 resource=file
+[FLAGS] created tick=5
+[MUTEX] hasFileMutex: pid=1 does not own path='.txt'
+[MUTEX] fileMutexTaken: path='.txt' free
+[MUTEX] acquireFileMutex: pid=1 acquired NEW path='.txt'
+[SYSCALL] pid=1 call=WRITE_FILE blocked=0 path=a
+[PARSER] parse error line=0 token='(null)'
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
