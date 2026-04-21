@@ -2,6 +2,7 @@
 #include "../../emu/Console/Console.h"
 #include "../../emu/FIles/Files.h"
 #include "../../emu/Mem/Mem.h"
+#include "../Memory/Memory.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -22,10 +23,22 @@ SyscallResultData syscall_print(
         result.code = SYSCALL_INVALID_ARGS;
         return result;
     }
+    
+    int pid = getActivePCB(emu)->ProcessID;
+    int implicit_lock = 0;
 
-    /* Acquire console write mutex */
-    if (state->mutexes->ConsoleWrite != 1) {
-        state->mutexes->ConsoleWrite = 1;
+    /* Ensure we have console write access */
+    if (state->mutexes->ConsoleWrite != -1 && state->mutexes->ConsoleWrite != pid) {
+        state->flags->blocked = BLOCKED_CON_WRITE;
+        result.blocked = 1;
+        result.code = SYSCALL_BLOCKED;
+        return result;
+    }
+    
+    /* Implicitly acquire if free */
+    if (state->mutexes->ConsoleWrite == -1) {
+        state->mutexes->ConsoleWrite = pid;
+        implicit_lock = 1;
     }
 
     /* Print the argument */
@@ -35,7 +48,18 @@ SyscallResultData syscall_print(
         strcpy(result.output, instr->arg1);
     }
 
-    printToConsole("%s", instr->arg1);
+    char *val = get_variable(emu, pid, instr->arg1);
+    if (val != NULL && strlen(val) > 0) {
+        printToConsole("%s", val);
+    } else {
+        printToConsole("%s", instr->arg1);
+    }
+    
+    if (implicit_lock) {
+        state->mutexes->ConsoleWrite = -1;
+        state->flags->unblocked_con_write = 1;
+    }
+    
     state->flags->blocked = BLOCKED_NONE;
 
     return result;
@@ -57,9 +81,68 @@ SyscallResultData syscall_assign(
         result.code = SYSCALL_INVALID_ARGS;
         return result;
     }
+    
+    int pid = getActivePCB(emu)->ProcessID;
+    int implicit_lock = 0;
 
-    /* In a full implementation, this would store variable in memory */
-    /* For now, we log the assignment */
+    /* If assigning from user input, need ConsoleRead */
+    if (strcmp(instr->arg2, "input") == 0) {
+        if (state->mutexes->ConsoleRead != -1 && state->mutexes->ConsoleRead != pid) {
+            state->flags->blocked = BLOCKED_CON_READ;
+            result.blocked = 1;
+            result.code = SYSCALL_BLOCKED;
+            return result;
+        }
+        if (state->mutexes->ConsoleRead == -1) {
+            state->mutexes->ConsoleRead = pid;
+            implicit_lock = 1;
+        }
+    }
+
+    /* Assign logic */
+    if (strcmp(instr->arg2, "input") == 0) {
+        printToConsole("Please enter a value");
+        char buffer[256];
+        if (scanf("%255s", buffer) > 0) {
+            set_variable(emu, pid, instr->arg1, buffer);
+        }
+    } else if (strcmp(instr->arg2, "readFile") == 0 && instr->arg3 != NULL) {
+        const char *filename = instr->arg3;
+        char *vname = get_variable(emu, pid, filename);
+        if (vname && strlen(vname) > 0) filename = vname;
+
+        if (!checkFileAccess(state, filename)) {
+            state->flags->blocked = BLOCKED_FILE;
+            strcpy(state->flags->blocked_file, filename);
+            result.blocked = 1;
+            result.code = SYSCALL_BLOCKED;
+            if (implicit_lock) {
+                state->mutexes->ConsoleRead = -1;
+                state->flags->unblocked_con_read = 1;
+            }
+            return result;
+        }
+        void *file_data = NULL;
+        size_t size = read_raw_data(filename, &file_data);
+        if (file_data != NULL) {
+            char *p = (char*)file_data;
+            while (*p && (*p == '\n' || *p == '\r')) p++;
+            char *end = p + strlen(p) - 1;
+            while (end > p && (*end == '\n' || *end == '\r')) end--;
+            end[1] = '\0';
+            set_variable(emu, pid, instr->arg1, p);
+            free(file_data);
+        }
+    } else {
+        /* Standard assignment */
+        char *val = get_variable(emu, pid, instr->arg2);
+        set_variable(emu, pid, instr->arg1, val && strlen(val) > 0 ? val : instr->arg2);
+    }
+    
+    if (implicit_lock) {
+        state->mutexes->ConsoleRead = -1;
+        state->flags->unblocked_con_read = 1;
+    }
     state->flags->blocked = BLOCKED_NONE;
 
     return result;
@@ -82,11 +165,16 @@ SyscallResultData syscall_readFile(
         return result;
     }
 
+    int pid = getActivePCB(emu)->ProcessID;
+
+    char *v1 = get_variable(emu, pid, instr->arg1);
+    const char *resolved_arg1 = (v1 && strlen(v1) > 0) ? v1 : instr->arg1;
+
     /* Check file mutex */
-    if (!checkFileAccess(state, instr->arg1)) {
+    if (!checkFileAccess(state, resolved_arg1)) {
         /* Resource not available, set blocked flag */
         state->flags->blocked = BLOCKED_FILE;
-        strcpy(state->flags->blocked_file, instr->arg1);
+        strcpy(state->flags->blocked_file, resolved_arg1);
         result.blocked = 1;
         result.code = SYSCALL_BLOCKED;
         return result;
@@ -94,7 +182,7 @@ SyscallResultData syscall_readFile(
 
     /* Read file using emulator API */
     void *file_data = NULL;
-    size_t file_size = read_raw_data(instr->arg1, &file_data);
+    size_t file_size = read_raw_data(resolved_arg1, &file_data);
 
     if (file_size == 0 || file_data == NULL) {
         result.code = SYSCALL_ERROR;
@@ -125,18 +213,25 @@ SyscallResultData syscall_writeFile(
         return result;
     }
 
+    int pid = getActivePCB(emu)->ProcessID;
+
+    char *v1 = get_variable(emu, pid, instr->arg1);
+    const char *resolved_arg1 = (v1 && strlen(v1) > 0) ? v1 : instr->arg1;
+    char *v2 = get_variable(emu, pid, instr->arg2);
+    const char *resolved_arg2 = (v2 && strlen(v2) > 0) ? v2 : instr->arg2;
+
     /* Check file mutex */
-    if (!checkFileAccess(state, instr->arg1)) {
+    if (!checkFileAccess(state, resolved_arg1)) {
         /* Resource not available, set blocked flag */
         state->flags->blocked = BLOCKED_FILE;
-        strcpy(state->flags->blocked_file, instr->arg1);
+        strcpy(state->flags->blocked_file, resolved_arg1);
         result.blocked = 1;
         result.code = SYSCALL_BLOCKED;
         return result;
     }
 
     /* Write file using emulator API */
-    int write_result = write_raw_data(instr->arg1, instr->arg2, strlen(instr->arg2));
+    int write_result = write_raw_data(resolved_arg1, resolved_arg2, strlen(resolved_arg2));
 
     if (write_result != 0) {
         result.code = SYSCALL_ERROR;
@@ -165,14 +260,43 @@ SyscallResultData syscall_printFromTo(
         return result;
     }
 
-    /* Acquire console write mutex */
-    if (state->mutexes->ConsoleWrite != 1) {
-        state->mutexes->ConsoleWrite = 1;
+    int pid = getActivePCB(emu)->ProcessID;
+    int implicit_lock = 0;
+
+    /* Ensure we have console write access */
+    if (state->mutexes->ConsoleWrite != -1 && state->mutexes->ConsoleWrite != pid) {
+        state->flags->blocked = BLOCKED_CON_WRITE;
+        result.blocked = 1;
+        result.code = SYSCALL_BLOCKED;
+        return result;
+    }
+    
+    /* Implicitly acquire if free */
+    if (state->mutexes->ConsoleWrite == -1) {
+        state->mutexes->ConsoleWrite = pid;
+        implicit_lock = 1;
     }
 
     /* Parse range arguments and print */
-    /* In full implementation, extract values and print range */
-    printToConsole("Range: %s to %s", instr->arg1, instr->arg2);
+    char *v1 = get_variable(emu, pid, instr->arg1);
+    const char *resolved_arg1 = (v1 && strlen(v1) > 0) ? v1 : instr->arg1;
+    char *v2 = get_variable(emu, pid, instr->arg2);
+    const char *resolved_arg2 = (v2 && strlen(v2) > 0) ? v2 : instr->arg2;
+
+    int from = atoi(resolved_arg1);
+    int to = atoi(resolved_arg2);
+    
+    char out_buf[256] = {0};
+    int offset = 0;
+    for (int i = from; i <= to && offset < 200; i++) {
+        offset += snprintf(out_buf + offset, sizeof(out_buf) - offset, "%d ", i);
+    }
+    printToConsole("%s", out_buf);
+    
+    if (implicit_lock) {
+        state->mutexes->ConsoleWrite = -1;
+        state->flags->unblocked_con_write = 1;
+    }
     state->flags->blocked = BLOCKED_NONE;
 
     return result;
@@ -195,11 +319,13 @@ SyscallResultData syscall_semWait(
         return result;
     }
 
+    int pid = getActivePCB(emu)->ProcessID;
+
     /* Check resource type and acquire appropriate mutex */
     switch (instr->resource) {
         case RES_USER_INPUT:
-            if (state->mutexes->ConsoleRead != 1) {
-                state->mutexes->ConsoleRead = 1;
+            if (state->mutexes->ConsoleRead == -1 || state->mutexes->ConsoleRead == pid) {
+                state->mutexes->ConsoleRead = pid;
                 state->flags->blocked = BLOCKED_NONE;
             } else {
                 state->flags->blocked = BLOCKED_CON_READ;
@@ -209,8 +335,8 @@ SyscallResultData syscall_semWait(
             break;
 
         case RES_USER_OUTPUT:
-            if (state->mutexes->ConsoleWrite != 1) {
-                state->mutexes->ConsoleWrite = 1;
+            if (state->mutexes->ConsoleWrite == -1 || state->mutexes->ConsoleWrite == pid) {
+                state->mutexes->ConsoleWrite = pid;
                 state->flags->blocked = BLOCKED_NONE;
             } else {
                 state->flags->blocked = BLOCKED_CON_WRITE;
@@ -263,18 +389,28 @@ SyscallResultData syscall_semSignal(
         return result;
     }
 
+    int pid = getActivePCB(emu)->ProcessID;
+
     /* Release appropriate mutex based on resource type */
     switch (instr->resource) {
         case RES_USER_INPUT:
-            state->mutexes->ConsoleRead = -1;
-            state->flags->unblocked_con_read = 1;
-            state->flags->blocked = BLOCKED_NONE;
+            if (state->mutexes->ConsoleRead == pid || state->mutexes->ConsoleRead == -1) {
+                state->mutexes->ConsoleRead = -1;
+                state->flags->unblocked_con_read = 1;
+                state->flags->blocked = BLOCKED_NONE;
+            } else {
+                result.code = SYSCALL_ERROR;
+            }
             break;
 
         case RES_USER_OUTPUT:
-            state->mutexes->ConsoleWrite = -1;
-            state->flags->unblocked_con_write = 1;
-            state->flags->blocked = BLOCKED_NONE;
+            if (state->mutexes->ConsoleWrite == pid || state->mutexes->ConsoleWrite == -1) {
+                state->mutexes->ConsoleWrite = -1;
+                state->flags->unblocked_con_write = 1;
+                state->flags->blocked = BLOCKED_NONE;
+            } else {
+                result.code = SYSCALL_ERROR;
+            }
             break;
 
         case RES_FILE:

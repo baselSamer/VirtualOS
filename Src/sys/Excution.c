@@ -4,6 +4,7 @@
 #include "../emu/Console/Console.h"
 #include "../emu/Core/Logger.h"
 #include "Gui/Gui.h"
+#include "../apps/systemApps/Parser_Interpeter/Parser.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -23,12 +24,14 @@ void execute(Emulator *emu, kernal_state *state) {
         struct MemoryWord *word = (struct MemoryWord*)readMem(emu, pcb->pc);
 
         if (word != NULL && word->type == MEM_TYPE_INSTRUCTION) {
-            printToConsole("  | PCB: %-3d | Command: %s", pcb->ProcessID, word->content.inst_data.code_line);
+            int is_blocked = parse_and_execute(word->content.inst_data.code_line, pcb->ProcessID, state, emu);
+            if (!is_blocked) {
+                pcb->pc += 1;
+            }
         } else {
             printToConsole("  | PCB: %-3d | [no instruction at PC %d]", pcb->ProcessID, pcb->pc);
+            pcb->pc += 1;
         }
-
-        pcb->pc += 1;
 
         if (pcb->pc > pcb->bounds[3]) {
             pcb->state = TERMINATED;

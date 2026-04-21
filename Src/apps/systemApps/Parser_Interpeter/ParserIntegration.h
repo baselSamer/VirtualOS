@@ -2,7 +2,7 @@
 #define PROJECT_ETHOS_PARSER_INTEGRATION_H
 
 #include "Parser.h"
-#include "../kernal.h"
+#include "../../../sys/kernal.h"
 
 /* Load script from file or memory */
 typedef struct {

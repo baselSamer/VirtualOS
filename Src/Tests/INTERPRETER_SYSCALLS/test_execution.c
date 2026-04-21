@@ -13,7 +13,7 @@
 #include <string.h>
 
 /* Core Headers */
-#include "../../sys/Parser/Parser.h"
+#include "../../apps/systemApps/Parser_Interpeter/Parser.h"
 #include "../../sys/SysCalls/SyscallDispatcher.h"
 #include "../../emu/Core/Emulator.h"
 #include "../../sys/kernal.h"

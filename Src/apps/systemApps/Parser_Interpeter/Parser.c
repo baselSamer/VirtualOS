@@ -1,5 +1,6 @@
 #include "Parser.h"
-#include "../../emu/Core/Logger.h"
+#include "../../../emu/Core/Logger.h"
+#include "../../../emu/Console/Console.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -39,6 +40,7 @@ Instruction parseInstruction(const char *line, int line_number) {
     instr.opcode = OP_INVALID;
     instr.arg1 = NULL;
     instr.arg2 = NULL;
+    instr.arg3 = NULL;
     instr.resource = RES_INVALID;
     instr.valid = 0;
     instr.line_number = line_number;
@@ -89,6 +91,14 @@ Instruction parseInstruction(const char *line, int line_number) {
         }
         instr.arg1 = string_dup(arg1);
         instr.arg2 = string_dup(arg2);
+        
+        if (strcmp(arg2, "readFile") == 0) {
+            char *arg3 = strtok_r(NULL, " \t\n\r", &saveptr);
+            if (arg3 != NULL) {
+                instr.arg3 = string_dup(arg3);
+            }
+        }
+        
         instr.valid = 1;
     }
     else if (strcmp(opcode_str, "writeFile") == 0) {
@@ -193,4 +203,29 @@ void freeInstruction(Instruction *instr) {
         free(instr->arg2);
         instr->arg2 = NULL;
     }
+    if (instr->arg3 != NULL) {
+        free(instr->arg3);
+        instr->arg3 = NULL;
+    }
+}
+
+#include "../../../sys/SysCalls/SysCallDispatcher.h"
+
+int parse_and_execute(const char* code_line, int pid, kernal_state *state, Emulator *emu) {
+    printToConsole("  | PCB: %-3d | Command: %s", pid, code_line);
+    
+    Instruction instr = parseInstruction(code_line, 0);
+    if (!instr.valid) {
+        freeInstruction(&instr);
+        return 0; /* Invalid instructions just skip/fail silently for now */
+    }
+    
+    SyscallResultData result = dispatchSyscall(emu, state, &instr, pid);
+    
+    int is_blocked = result.blocked;
+    
+    freeSyscallResult(&result);
+    freeInstruction(&instr);
+    
+    return is_blocked;
 }

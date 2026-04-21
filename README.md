@@ -40,12 +40,17 @@ Main areas:
 	- Start.c
 	- Excution.c
 	- flags.c
-	- Resouces
-	- Scheduler (current folder name in repo is Schduler)
+	- kernal.h
+	- Gui
 	- Memory
+	- Parser
+	- Resouces
+	- Scheduler
 	- SysCalls
 - Src/apps
 	- systemApps
+		- Console
+		- Parser_Interpeter
 	- User Apps
 
 ## Core Data Structures
@@ -64,16 +69,20 @@ Defined in Src/sys/kernal.h.
 
 Fields:
 - current_tick_count
-- flags
+- flags (tracks exact blocking resource: BlockType enum, unblock signaling)
 - mutexes
+- ready queues (general, L1, L2, L3)
+- blocked queue (general tracking)
 
 ### Mutex
 Defined in Src/sys/kernal.h and operated through Src/sys/Resouces/Mutex.h.
 
 Fields:
-- ConsoleRead
-- ConsoleWrite
-- file_mutexes (linked list by file path + owner id)
+- ConsoleRead (int flag)
+- ConsoleWrite (int flag)
+- input_queue (Console Read specific waiting array)
+- output_queue (Console Write specific waiting array)
+- file_mutexes (linked list composed of Nodes tracking file path, owner id, and a local file-specific blocked_queue)
 
 ## Emulator APIs (Current)
 

@@ -39,27 +39,20 @@ Resource names used by semWait/semSignal:
 
 ## Task Breakdown
 
-### A. Instruction Representation
-1. Define instruction format and parser output structure.
-2. Implement tokenizer/parser for current app scripts.
-3. Validate malformed input handling.
+### A. Instruction Representation & Parsing (Ongoing)
+- [x] Initial execution hook created (`apps/systemApps/Parser_Interpeter/Parser.c`).
+- [ ] Implement tokenizer to split `code_line` strings into arguments.
+- [ ] Map string commands (`print`, `assign`, `readFile`, etc.) to backend `OP_PRINT`, `OP_ASSIGN`, etc.
+- [ ] Route the parsed command objects down into the `dispatchSyscall` layer inside `sys/SysCalls/SysCallDispatcher.c`.
 
-### B. Tick Execution Contract
-1. On each tick:
-- Read active process and pc.
-- Fetch instruction from process memory/bounds.
-- Execute one instruction.
-- Advance pc only on successful/defined semantics.
-2. Keep pc within bounds; terminate or fault on out-of-bounds.
+### B. Tick Execution Contract (Completed)
+- [x] On each tick: Read active process and pc, fetch instruction, execute.
+- [x] `Excution.c`'s `execute()` correctly extracts the memory instruction word and routes it to `parse_and_execute()`.
 
-### C. Syscall Layer
-1. Implement syscall dispatcher in sys/SysCalls/.
-2. For every syscall:
-- Call createNewFlags(state).
-- Validate arguments.
-- Check resource permissions/mutex status.
-- Set blocked flag when unavailable.
-3. Return result codes and side effects consistently.
+### C. Syscall Layer Integration
+1. The backend handlers (`sys/SysCalls/SyscallHandlers.c`) already exist and were recently refactored to support distinct `BlockType` queue categorizations.
+2. The core missing link is the bridge: `Parser.c` must assemble an `Instruction` struct and call `dispatchSyscall(emu, state, &instr, pid);`.
+3. Handle return codes: If `result.code == SYSCALL_BLOCKED`, ensure the parser properly signals execution yielding to the OS without skipping the instruction.
 
 Required syscall service coverage:
 1. Disk file read

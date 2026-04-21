@@ -38,4 +38,8 @@ int swap_out(Emulator *emu);
 int swap_in(Emulator *emu, int target_pid);
 PCB* findPCB_FromID(Emulator *emu, int id);
 
+/* Variable accessor helpers */
+int set_variable(Emulator *emu, int pid, const char *name, const char *value);
+char* get_variable(Emulator *emu, int pid, const char *name);
+
 #endif

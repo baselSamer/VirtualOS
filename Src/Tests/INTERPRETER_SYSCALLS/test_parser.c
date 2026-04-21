@@ -13,8 +13,8 @@
 #include <string.h>
 
 /* Core Headers */
-#include "../../sys/Parser/Parser.h"
-#include "../../sys/Parser/ParserIntegration.h"
+#include "../../apps/systemApps/Parser_Interpeter/Parser.h"
+#include "../../apps/systemApps/Parser_Interpeter/ParserIntegration.h"
 #include "../../emu/Core/Logger.h"
 
 /* Test Statistics */

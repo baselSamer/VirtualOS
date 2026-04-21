@@ -2,6 +2,8 @@
 #define PROJECT_ETHOS_PARSER_H
 
 #include <stddef.h>
+#include "../../../sys/kernal.h"
+#include "../../../emu/Core/Emulator.h"
 
 /* Opcode definitions for all supported instructions */
 typedef enum {
@@ -28,6 +30,7 @@ typedef struct {
     Opcode opcode;
     char *arg1;           /* First argument (variable name, file path, resource name, or value) */
     char *arg2;           /* Second argument (for operations requiring two arguments) */
+    char *arg3;           /* Third argument (for nested operations like assign readFile) */
     ResourceType resource; /* Resource type for sem operations */
     int valid;            /* Flag indicating if instruction was parsed successfully */
     int line_number;      /* Line number in script for error reporting */
@@ -46,5 +49,7 @@ Instruction parseInstruction(const char *line, int line_number);
 void freeInstruction(Instruction *instr);
 char* tokenize(const char *input, int token_index);
 int validateInstruction(Instruction *instr);
+
+int parse_and_execute(const char* code_line, int pid, kernal_state *state, Emulator *emu);
 
 #endif /* PROJECT_ETHOS_PARSER_H */

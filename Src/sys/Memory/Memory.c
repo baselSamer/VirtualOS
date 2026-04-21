@@ -239,6 +239,48 @@ int swap_out(Emulator *emu) {
     return 0;
 }
 
+/* Set variable in memory */
+int set_variable(Emulator *emu, int pid, const char *name, const char *value) {
+    PCB *pcb = findPCB_FromID(emu, pid);
+    if (pcb == NULL) return 0;
+    
+    int start_bound = pcb->bounds[0];
+    
+    /* Variables are at slots start_bound + 1, start_bound + 2, start_bound + 3 */
+    for (int i = 1; i <= 3; i++) {
+        struct MemoryWord *word = (struct MemoryWord*)readMem(emu, start_bound + i);
+        if (word != NULL && word->type == MEM_TYPE_VARIABLE) {
+            /* If empty or matches name, assign here */
+            if (strlen(word->content.var_data.name) == 0 || strcmp(word->content.var_data.name, name) == 0) {
+                strncpy(word->content.var_data.name, name, 31);
+                word->content.var_data.name[31] = '\0';
+                strncpy(word->content.var_data.value, value, 63);
+                word->content.var_data.value[63] = '\0';
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+/* Get variable from memory */
+char* get_variable(Emulator *emu, int pid, const char *name) {
+    PCB *pcb = findPCB_FromID(emu, pid);
+    if (pcb == NULL) return NULL;
+    
+    int start_bound = pcb->bounds[0];
+    
+    for (int i = 1; i <= 3; i++) {
+        struct MemoryWord *word = (struct MemoryWord*)readMem(emu, start_bound + i);
+        if (word != NULL && word->type == MEM_TYPE_VARIABLE) {
+            if (strcmp(word->content.var_data.name, name) == 0) {
+                return word->content.var_data.value;
+            }
+        }
+    }
+    return NULL;
+}
+
 // Returns 0 on success, -1 on failure
 int swap_in(Emulator *emu, int target_pid) {
     char swap_filename[64];

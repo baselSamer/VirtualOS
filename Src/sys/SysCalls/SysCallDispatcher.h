@@ -2,7 +2,7 @@
 #define PROJECT_ETHOS_SYSCALL_DISPATCHER_H
 
 #include "../kernal.h"
-#include "../Parser/Parser.h"
+#include "../../apps/systemApps/Parser_Interpeter/Parser.h"
 
 /* Syscall return codes */
 typedef enum {
