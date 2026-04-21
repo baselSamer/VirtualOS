@@ -41,7 +41,6 @@ void execute(Emulator *emu, kernal_state *state) {
         printToConsole("  | CPU IDLE | No process running");
     }
 
-    createNewFlags(state);
     state->current_tick_count += 1;
 }
 
