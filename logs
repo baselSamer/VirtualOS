@@ -1,0 +1,19 @@
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL] Execution loop started
+[FLAGS] created tick=0
+[SYSCALL] pid=1 call=SEM_WAIT blocked=0 resource=userInput
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL] Execution loop started
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)

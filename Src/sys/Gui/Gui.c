@@ -1,6 +1,7 @@
 #include "Gui.h"
 #include "../Memory/Memory.h"
 #include "../../emu/Mem/Mem.h"
+#include "../../emu/Core/Logger.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -10,10 +11,10 @@
 #include <stdlib.h>
 
 /* ========== CONSTANTS ========== */
-#define WIN_W       920
+#define WIN_W       1050
 #define WIN_H       720
-#define GRID_X      30
-#define GRID_Y      70
+#define GRID_X      230
+#define GRID_Y      120
 #define CELL_W      100
 #define CELL_H      60
 #define GRID_COLS   8
@@ -21,6 +22,7 @@
 #define STATUS_H    45
 
 /* GUI States */
+#define GUI_STATE_WELCOME       -1
 #define GUI_STATE_CONFIG_ALGO   0
 #define GUI_STATE_CONFIG_PROCS  1
 #define GUI_STATE_SIMULATION    2
@@ -41,32 +43,38 @@
 #define ID_BTN_PREVPRO  3003
 #define ID_BTN_NEXTPRO  3004
 
-/* macOS Design Palette */
-#define MAC_BG          RGB(245, 245, 247)
-#define MAC_SURFACE     RGB(255, 255, 255)
-#define MAC_TEXT        RGB(29, 29, 31)
-#define MAC_TEXT_SEC    RGB(134, 134, 139)
-#define MAC_BLUE        RGB(0, 122, 255)
-#define MAC_BORDER      RGB(210, 210, 215)
+#define ID_BTN_START    1000
+
+/* Win11 Dark Mode Palette */
+#define WIN11_BG        RGB(32, 32, 32)
+#define WIN11_SURFACE   RGB(40, 40, 40)
+#define WIN11_OVERLAY   RGB(45, 45, 48)
+#define WIN11_TEXT      RGB(255, 255, 255)
+#define WIN11_TEXT_SEC  RGB(160, 160, 160)
+#define WIN11_ACCENT    RGB(0, 120, 212)
+#define WIN11_HOVER     RGB(50, 50, 50)
+#define WIN11_BORDER    RGB(64, 64, 64)
 
 /* Tab indices */
 #define TAB_MEMORY  0
 #define TAB_SWAP    1
 #define TAB_SYSTEM  2
+#define TAB_LOGS    3
+#define TAB_CONSOLE 4
 
 /* PID colors */
 static COLORREF pid_colors[] = {
-    RGB(230, 230, 230),  /* 0: Empty */
-    RGB(84, 199, 252),   /* 1: Light Blue */
-    RGB(255, 149, 0),    /* 2: Orange */
-    RGB(255, 59, 48),    /* 3: Red */
-    RGB(76, 217, 100),   /* 4: Green */
-    RGB(88, 86, 214),    /* 5: Purple */
-    RGB(255, 204, 0),    /* 6: Yellow */
-    RGB(255, 45, 85),    /* 7: Pink */
-    RGB(90, 200, 250),   /* 8: Teal */
-    RGB(142, 142, 147),  /* 9: Grey */
-    RGB(198, 156, 109),  /* 10: Brown */
+    RGB(60, 60, 60),    /* 0: Empty (Surface) */
+    RGB(0, 191, 255),   /* 1: Light Blue */
+    RGB(255, 140, 0),   /* 2: Orange */
+    RGB(255, 59, 48),   /* 3: Red */
+    RGB(50, 215, 75),   /* 4: Green */
+    RGB(191, 90, 242),  /* 5: Purple */
+    RGB(255, 214, 10),  /* 6: Yellow */
+    RGB(255, 55, 95),   /* 7: Pink */
+    RGB(100, 210, 255), /* 8: Teal */
+    RGB(142, 142, 147), /* 9: Grey */
+    RGB(172, 142, 104), /* 10: Brown */
 };
 #define NUM_PID_COLORS 11
 
@@ -79,7 +87,7 @@ static HANDLE g_step_event = NULL;
 static HANDLE g_config_done_event = NULL;
 static HANDLE g_gui_thread = NULL;
 
-static int g_gui_mode = GUI_STATE_CONFIG_ALGO;
+static int g_gui_mode = GUI_STATE_WELCOME;
 static int g_active_tab = TAB_MEMORY;
 static int g_hovered_cell = -1;
 static volatile int g_running = 1;
@@ -102,6 +110,10 @@ static char **g_temp_paths = NULL;
 static HWND hCboAlgo, hTxtQuantum, hTxtProcs, hBtnNext;
 static HWND hTxtArrive, hBtnBrowse, hBtnPrevPro, hBtnNextPro;
 static HWND hTabMem, hTabSwap, hTabSys, hBtnStep;
+
+static HWND hTxtTerminalIn, hBtnTerminalSub;
+static HANDLE g_terminal_event = NULL;
+static char g_terminal_buffer[256] = {0};
 
 /* ========== HELPERS ========== */
 
@@ -197,24 +209,24 @@ static void DrawRoundRect(HDC hdc, int x, int y, int w, int h, int radius, COLOR
 
 static void drawQueue(HDC hdc, int x, int y, const char *label, Queue *q, int *slot_pids) {
     char buf[256];
-    SetTextColor(hdc, MAC_TEXT);
+    SetTextColor(hdc, WIN11_TEXT);
     SelectObject(hdc, g_font_bold);
     TextOut(hdc, x, y, label, (int)strlen(label));
     
     SelectObject(hdc, g_font_normal);
     if (q->count == 0) {
-        SetTextColor(hdc, MAC_TEXT_SEC);
+        SetTextColor(hdc, WIN11_TEXT_SEC);
         TextOut(hdc, x + 10, y + 22, "(empty)", 7);
         return;
     }
     
-    SetTextColor(hdc, MAC_TEXT);
+    SetTextColor(hdc, WIN11_TEXT);
     int bx = x + 10;
     for (int i = 0; i < q->count; i++) {
         int idx = (q->front + i) % MAX_SIZE;
         int pid = q->process_ids[idx];
         
-        DrawRoundRect(hdc, bx, y + 20, 45, 25, 8, getColorForPid(pid), MAC_BORDER, 1);
+        DrawRoundRect(hdc, bx, y + 20, 45, 25, 8, getColorForPid(pid), WIN11_BORDER, 1);
         
         sprintf(buf, "P%d", pid);
         SetBkMode(hdc, TRANSPARENT);
@@ -222,6 +234,36 @@ static void drawQueue(HDC hdc, int x, int y, const char *label, Queue *q, int *s
         
         bx += 50;
     }
+}
+
+/* ========== STATE: WELCOME ========== */
+static HWND hBtnStart;
+
+static void buildWelcomeUI(HWND hwnd) {
+    DestroyAllChildWindows(hwnd);
+    
+    hBtnStart = CreateWindow("BUTTON", "Start", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
+                 WIN_W/2 - 60, WIN_H/2 + 50, 120, 40, hwnd, (HMENU)ID_BTN_START, NULL, NULL);
+                 
+    HFONT sysFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    SendMessage(hBtnStart, WM_SETFONT, (WPARAM)sysFont, 0);
+}
+
+static void drawWelcomeTab(HDC hdc, RECT *client) {
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, WIN11_TEXT);
+    SelectObject(hdc, g_font_title);
+    
+    const char *title = "Welcome to Ethos";
+    SIZE size;
+    GetTextExtentPoint32(hdc, title, strlen(title), &size);
+    TextOut(hdc, (WIN_W - size.cx) / 2, WIN_H/2 - 50, title, strlen(title));
+    
+    SelectObject(hdc, g_font_normal);
+    SetTextColor(hdc, WIN11_TEXT_SEC);
+    const char *sub = "Project Ethos OS Simulator v1.0";
+    GetTextExtentPoint32(hdc, sub, strlen(sub), &size);
+    TextOut(hdc, (WIN_W - size.cx) / 2, WIN_H/2 - 10, sub, strlen(sub));
 }
 
 /* ========== STATE: CONFIG ALGO ========== */
@@ -263,12 +305,12 @@ static void buildConfigAlgoUI(HWND hwnd) {
 
 static void drawConfigAlgoTab(HDC hdc, RECT *client) {
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, MAC_TEXT);
+    SetTextColor(hdc, WIN11_TEXT);
     SelectObject(hdc, g_font_title);
     TextOut(hdc, 300, 120, "System Configuration", 20);
     
     SelectObject(hdc, g_font_normal);
-    SetTextColor(hdc, MAC_TEXT_SEC);
+    SetTextColor(hdc, WIN11_TEXT_SEC);
     TextOut(hdc, 300, 160, "Step 1: Set up the OS Kernel Scheduler", 38);
 }
 
@@ -304,7 +346,7 @@ static void buildConfigProcsUI(HWND hwnd) {
 
 static void drawConfigProcsTab(HDC hdc, RECT *client) {
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, MAC_TEXT);
+    SetTextColor(hdc, WIN11_TEXT);
     SelectObject(hdc, g_font_title);
     
     char buf[128];
@@ -312,16 +354,16 @@ static void drawConfigProcsTab(HDC hdc, RECT *client) {
     TextOut(hdc, 300, 120, buf, (int)strlen(buf));
     
     SelectObject(hdc, g_font_normal);
-    SetTextColor(hdc, MAC_TEXT_SEC);
+    SetTextColor(hdc, WIN11_TEXT_SEC);
     TextOut(hdc, 300, 160, "Step 2: Configure incoming processes", 36);
     
     // Draw Current Path
-    SetTextColor(hdc, MAC_TEXT);
+    SetTextColor(hdc, WIN11_TEXT);
     TextOut(hdc, 300, 270, "Selected File:", 14);
     
     char* curPath = g_temp_paths[g_cfg_proc_idx];
     if (curPath != NULL && strlen(curPath) > 0) {
-        SetTextColor(hdc, MAC_BLUE);
+        SetTextColor(hdc, WIN11_ACCENT);
         TextOut(hdc, 300, 340, curPath, (int)strlen(curPath));
     } else {
         SetTextColor(hdc, RGB(220, 50, 50));
@@ -333,20 +375,25 @@ static void drawConfigProcsTab(HDC hdc, RECT *client) {
 static void buildSimulationUI(HWND hwnd) {
     DestroyAllChildWindows(hwnd);
     
-    hTabMem = CreateWindow("BUTTON", "Memory", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-                 480, 8, 80, 28, hwnd, (HMENU)ID_TAB_MEM, NULL, NULL);
-    hTabSwap = CreateWindow("BUTTON", "Swap", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-                 565, 8, 80, 28, hwnd, (HMENU)ID_TAB_SWAP, NULL, NULL);
-    hTabSys = CreateWindow("BUTTON", "System", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-                 650, 8, 80, 28, hwnd, (HMENU)ID_TAB_SYS, NULL, NULL);
+    // Bottom right corner for Step button
     hBtnStep = CreateWindow("BUTTON", "Step >>", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-                 745, 8, 70, 28, hwnd, (HMENU)ID_BTN_STEP, NULL, NULL);
+                 WIN_W - 130, WIN_H - 150, 100, 40, hwnd, (HMENU)ID_BTN_STEP, NULL, NULL);
+
+    // Terminal Inputs (Hidden by default)
+    hTxtTerminalIn = CreateWindow("EDIT", "", WS_CHILD | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL,
+                 GRID_X, WIN_H - 150, 500, 30, hwnd, (HMENU)1006, NULL, NULL);
+    hBtnTerminalSub = CreateWindow("BUTTON", "Submit", WS_CHILD | BS_PUSHBUTTON | WS_TABSTOP,
+                 GRID_X + 510, WIN_H - 150, 100, 30, hwnd, (HMENU)1007, NULL, NULL);
 
     HFONT sysFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessage(hTabMem, WM_SETFONT, (WPARAM)sysFont, 0);
-    SendMessage(hTabSwap, WM_SETFONT, (WPARAM)sysFont, 0);
-    SendMessage(hTabSys, WM_SETFONT, (WPARAM)sysFont, 0);
     SendMessage(hBtnStep, WM_SETFONT, (WPARAM)sysFont, 0);
+    
+    HFONT consolas = CreateFont(18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_MODERN, "Consolas");
+        
+    SendMessage(hTxtTerminalIn, WM_SETFONT, (WPARAM)consolas, 0);
+    SendMessage(hBtnTerminalSub, WM_SETFONT, (WPARAM)sysFont, 0);
 }
 
 /* ========== TAB: MEMORY (SIMULATION) ========== */
@@ -355,9 +402,18 @@ static void drawMemoryTab(HDC hdc, RECT *client) {
     computeSlotOwnership(slot_pids);
     
     char buf[128];
+    SelectObject(hdc, g_font_title);
+    SetTextColor(hdc, WIN11_TEXT);
+    TextOut(hdc, GRID_X, GRID_Y - 50, "Physical Memory", 15);
+    
+    /* Calculate usage */
+    int used_slots = 0;
+    for (int i=0; i<40; i++) if (slot_pids[i] != 0) used_slots++;
+    
     SelectObject(hdc, g_font_bold);
-    SetTextColor(hdc, MAC_TEXT);
-    TextOut(hdc, GRID_X, GRID_Y - 20, "Physical Memory (40 words)", 26);
+    SetTextColor(hdc, WIN11_ACCENT);
+    sprintf(buf, "%d / 40 Slots Used", used_slots);
+    TextOut(hdc, GRID_X, GRID_Y - 20, buf, (int)strlen(buf));
     
     SelectObject(hdc, g_font_normal);
     
@@ -370,7 +426,7 @@ static void drawMemoryTab(HDC hdc, RECT *client) {
         struct MemoryWord *word = (struct MemoryWord*)readMem(g_emu, i);
         int pid = slot_pids[i];
         COLORREF color = getColorForPid(pid);
-        COLORREF border = (i == g_hovered_cell) ? MAC_BLUE : MAC_BORDER;
+        COLORREF border = (i == g_hovered_cell) ? WIN11_ACCENT : WIN11_BORDER;
         int thickness = (i == g_hovered_cell) ? 2 : 1;
         
         DrawRoundRect(hdc, x, y, CELL_W - 4, CELL_H - 4, 10, color, border, thickness);
@@ -386,7 +442,7 @@ static void drawMemoryTab(HDC hdc, RECT *client) {
         /* Center text */
         SelectObject(hdc, g_font_normal);
         if (word != NULL) {
-            SetTextColor(hdc, MAC_TEXT);
+            SetTextColor(hdc, WIN11_TEXT);
             sprintf(buf, "%s", memTypeToStr(word->type));
             TextOut(hdc, x + 30, y + 18, buf, (int)strlen(buf));
             if (pid > 0) {
@@ -394,7 +450,7 @@ static void drawMemoryTab(HDC hdc, RECT *client) {
                 TextOut(hdc, x + 35, y + 36, buf, (int)strlen(buf));
             }
         } else {
-            SetTextColor(hdc, MAC_TEXT_SEC);
+            SetTextColor(hdc, WIN11_TEXT_SEC);
             TextOut(hdc, x + 25, y + 22, "FREE", 4);
         }
     }
@@ -402,14 +458,14 @@ static void drawMemoryTab(HDC hdc, RECT *client) {
     /* Legend */
     int ly = GRID_Y + GRID_ROWS * CELL_H + 15;
     SelectObject(hdc, g_font_bold);
-    SetTextColor(hdc, MAC_TEXT);
+    SetTextColor(hdc, WIN11_TEXT);
     TextOut(hdc, GRID_X, ly, "Legend:", 7);
     
     SelectObject(hdc, g_font_normal);
     int lx = GRID_X + 70;
     
     /* Empty */
-    DrawRoundRect(hdc, lx, ly, 20, 16, 4, pid_colors[0], MAC_BORDER, 1);
+    DrawRoundRect(hdc, lx, ly, 20, 16, 4, pid_colors[0], WIN11_BORDER, 1);
     TextOut(hdc, lx + 25, ly, "Empty", 5);
     lx += 90;
     
@@ -420,7 +476,7 @@ static void drawMemoryTab(HDC hdc, RECT *client) {
         }
         if (!found) continue;
         
-        DrawRoundRect(hdc, lx, ly, 20, 16, 4, pid_colors[p], MAC_BORDER, 1);
+        DrawRoundRect(hdc, lx, ly, 20, 16, 4, pid_colors[p], WIN11_BORDER, 1);
         sprintf(buf, "PID %d", p);
         TextOut(hdc, lx + 25, ly, buf, (int)strlen(buf));
         lx += 90;
@@ -434,7 +490,7 @@ static void drawSwapTab(HDC hdc, RECT *client) {
     int y = GRID_Y;
     
     SelectObject(hdc, g_font_bold);
-    SetTextColor(hdc, MAC_TEXT);
+    SetTextColor(hdc, WIN11_TEXT);
     TextOut(hdc, GRID_X, y - 20, "Swap Memory (on disk)", 21);
     
     SelectObject(hdc, g_font_normal);
@@ -450,10 +506,10 @@ static void drawSwapTab(HDC hdc, RECT *client) {
             long size = ftell(f);
             fclose(f);
             
-            DrawRoundRect(hdc, GRID_X, y, 600, 40, 10, getColorForPid(p), MAC_BORDER, 1);
+            DrawRoundRect(hdc, GRID_X, y, 600, 40, 10, getColorForPid(p), WIN11_BORDER, 1);
             
             SetBkMode(hdc, TRANSPARENT);
-            SetTextColor(hdc, MAC_TEXT);
+            SetTextColor(hdc, WIN11_TEXT);
             sprintf(buf, "  PID %d  |  File: %s  |  Size: %ld bytes", p, filename, size);
             TextOut(hdc, GRID_X + 15, y + 10, buf, (int)strlen(buf));
             
@@ -462,7 +518,7 @@ static void drawSwapTab(HDC hdc, RECT *client) {
     }
     
     if (!found_any) {
-        SetTextColor(hdc, MAC_TEXT_SEC);
+        SetTextColor(hdc, WIN11_TEXT_SEC);
         TextOut(hdc, GRID_X + 10, y + 10, "No processes currently swapped to disk.", 39);
     }
 }
@@ -476,17 +532,17 @@ static void drawSystemTab(HDC hdc, RECT *client) {
     int x = GRID_X;
     
     SelectObject(hdc, g_font_bold);
-    SetTextColor(hdc, MAC_TEXT);
+    SetTextColor(hdc, WIN11_TEXT);
     TextOut(hdc, x, y, "Active Process", 14);
     y += 22;
     
     SelectObject(hdc, g_font_normal);
     PCB *active = getActivePCB(g_emu);
     if (active != NULL) {
-        DrawRoundRect(hdc, x, y, 420, 75, 12, getColorForPid(active->ProcessID), MAC_BORDER, 1);
+        DrawRoundRect(hdc, x, y, 420, 75, 12, getColorForPid(active->ProcessID), WIN11_BORDER, 1);
         
         SetBkMode(hdc, TRANSPARENT);
-        SetTextColor(hdc, MAC_TEXT);
+        SetTextColor(hdc, WIN11_TEXT);
         sprintf(buf, "  PID: %d   State: %s   PC: %d", active->ProcessID, stateToStr(active->state), active->pc);
         TextOut(hdc, x + 5, y + 8, buf, (int)strlen(buf));
         sprintf(buf, "  Bounds: [%d, %d, %d, %d]", active->bounds[0], active->bounds[1], active->bounds[2], active->bounds[3]);
@@ -503,13 +559,13 @@ static void drawSystemTab(HDC hdc, RECT *client) {
             TextOut(hdc, x + 5, y + 48, buf, (int)strlen(buf));
         }
     } else {
-        SetTextColor(hdc, MAC_TEXT_SEC);
+        SetTextColor(hdc, WIN11_TEXT_SEC);
         TextOut(hdc, x + 10, y + 5, "No active process (CPU IDLE)", 28);
     }
     y += 90;
     
     SelectObject(hdc, g_font_bold);
-    SetTextColor(hdc, MAC_TEXT);
+    SetTextColor(hdc, WIN11_TEXT);
     sprintf(buf, "Scheduler: %s", algoToStr(g_state->current_algo));
     TextOut(hdc, x, y, buf, (int)strlen(buf));
     y += 28;
@@ -545,17 +601,17 @@ static void drawSystemTab(HDC hdc, RECT *client) {
     /* HRRN Ratios */
     if (g_state->current_algo == SCHED_HRRN && g_state->ready_queue.count > 0) {
         SelectObject(hdc, g_font_bold);
-        SetTextColor(hdc, MAC_TEXT);
+        SetTextColor(hdc, WIN11_TEXT);
         TextOut(hdc, x, y, "HRRN Response Ratios:", 21);
         y += 22;
         
         SelectObject(hdc, g_font_normal);
-        SetTextColor(hdc, MAC_TEXT_SEC);
+        SetTextColor(hdc, WIN11_TEXT_SEC);
         sprintf(buf, "  %-8s %-10s %-10s %-10s %-10s", "PID", "Arrival", "Wait", "Burst", "Ratio");
         TextOut(hdc, x, y, buf, (int)strlen(buf));
         y += 18;
         
-        HPEN pen = CreatePen(PS_SOLID, 1, MAC_BORDER);
+        HPEN pen = CreatePen(PS_SOLID, 1, WIN11_BORDER);
         HPEN oldPen = SelectObject(hdc, pen);
         MoveToEx(hdc, x, y, NULL);
         LineTo(hdc, x + 400, y);
@@ -582,7 +638,7 @@ static void drawSystemTab(HDC hdc, RECT *client) {
                 int burst = (pcb->bounds[3] - pcb->bounds[2]) + 1;
                 float ratio = (float)(wait + burst) / (float)burst;
                 
-                SetTextColor(hdc, MAC_TEXT);
+                SetTextColor(hdc, WIN11_TEXT);
                 sprintf(buf, "  P%-6d %-10d %-10d %-10d %-10.2f", pid, arrival, wait, burst, ratio);
                 TextOut(hdc, x, y, buf, (int)strlen(buf));
                 y += 18;
@@ -591,16 +647,40 @@ static void drawSystemTab(HDC hdc, RECT *client) {
     }
 }
 
+/* ========== TAB: SYSTEM LOGS (SIMULATION) ========== */
+static void drawLogsTab(HDC hdc, RECT *client) {
+    int x = GRID_X;
+    int y = GRID_Y - 50;
+    
+    SelectObject(hdc, g_font_title);
+    SetTextColor(hdc, WIN11_TEXT);
+    TextOut(hdc, x, y, "System Execution Logs", 21);
+    
+    y += 40;
+    SelectObject(hdc, g_font_small); /* Use small font for logs */
+    SetTextColor(hdc, RGB(180, 255, 180)); /* Hacker Green log tint */
+    
+    if (g_gui_log_count == 0) {
+        TextOut(hdc, x, y, "Logs empty.", 11);
+        return;
+    }
+    
+    for (int i=0; i<g_gui_log_count; i++) {
+        TextOut(hdc, x, y, g_gui_logs[i], strlen(g_gui_logs[i]));
+        y += 16;
+    }
+}
+
 /* ========== STATUS BAR ========== */
 static void drawStatusBar(HDC hdc, RECT *client) {
     int y = client->bottom - STATUS_H;
     
-    HBRUSH bg = CreateSolidBrush(MAC_BG);
+    HBRUSH bg = CreateSolidBrush(WIN11_BG);
     RECT r = { 0, y, client->right, client->bottom };
     FillRect(hdc, &r, bg);
     DeleteObject(bg);
     
-    HPEN pen = CreatePen(PS_SOLID, 1, MAC_BORDER);
+    HPEN pen = CreatePen(PS_SOLID, 1, WIN11_BORDER);
     HPEN oldPen = SelectObject(hdc, pen);
     MoveToEx(hdc, 0, y, NULL);
     LineTo(hdc, client->right, y);
@@ -612,7 +692,7 @@ static void drawStatusBar(HDC hdc, RECT *client) {
     char buf[512];
     
     if (g_gui_mode != GUI_STATE_SIMULATION) {
-        SetTextColor(hdc, MAC_TEXT_SEC);
+        SetTextColor(hdc, WIN11_TEXT_SEC);
         TextOut(hdc, 10, y + 12, "Configuration Mode", 18);
         return;
     }
@@ -649,20 +729,14 @@ static void drawStatusBar(HDC hdc, RECT *client) {
                     sprintf(buf, "Slot %d: UNKNOWN TYPE", g_hovered_cell);
             }
         }
-        SetTextColor(hdc, MAC_TEXT);
+        SetTextColor(hdc, WIN11_TEXT);
         TextOut(hdc, 10, y + 12, buf, (int)strlen(buf));
     } else {
-        SetTextColor(hdc, MAC_TEXT_SEC);
+        SetTextColor(hdc, WIN11_TEXT_SEC);
         if (g_active_tab == TAB_MEMORY) {
             TextOut(hdc, 10, y + 12, "Hover over a memory cell to see details", 39);
         }
     }
-    
-    /* Tick counter */
-    sprintf(buf, "Tick: %d", g_state->current_tick_count);
-    SetTextColor(hdc, MAC_TEXT);
-    SelectObject(hdc, g_font_bold);
-    TextOut(hdc, client->right - 100, y + 12, buf, (int)strlen(buf));
 }
 
 /* ========== WM_PAINT MAIN ========== */
@@ -676,38 +750,14 @@ static void paintWindow(HWND hwnd) {
     HBITMAP oldBmp = SelectObject(memDC, memBmp);
     
     /* Background Surface */
-    HBRUSH bgBrush = CreateSolidBrush(MAC_SURFACE);
+    HBRUSH bgBrush = CreateSolidBrush(WIN11_SURFACE);
     FillRect(memDC, &client, bgBrush);
     DeleteObject(bgBrush);
-    
-    /* macOS Window Header Bar */
-    HBRUSH hdrBrush = CreateSolidBrush(MAC_BG);
-    RECT hdrRect = { 0, 0, client.right, 45 };
-    FillRect(memDC, &hdrRect, hdrBrush);
-    DeleteObject(hdrBrush);
-    
-    HPEN hdrPen = CreatePen(PS_SOLID, 1, MAC_BORDER);
-    HPEN oldPen = SelectObject(memDC, hdrPen);
-    MoveToEx(memDC, 0, 45, NULL);
-    LineTo(memDC, client.right, 45);
-    SelectObject(memDC, oldPen);
-    DeleteObject(hdrPen);
-    
-    /* Title */
-    SetBkMode(memDC, TRANSPARENT);
-    SelectObject(memDC, g_font_bold);
-    SetTextColor(memDC, MAC_TEXT);
-    TextOut(memDC, 15, 12, "Project Ethos OS", 16);
-    
-    /* Tick in header */
-    if (g_gui_mode == GUI_STATE_SIMULATION) {
-        char tickBuf[64];
-        sprintf(tickBuf, "TICK: %d", g_state->current_tick_count);
-        TextOut(memDC, client.right - 130, 12, tickBuf, (int)strlen(tickBuf));
-    }
-    
     /* Render Core Content based on state */
     switch (g_gui_mode) {
+        case GUI_STATE_WELCOME:
+            drawWelcomeTab(memDC, &client);
+            break;
         case GUI_STATE_CONFIG_ALGO:
             drawConfigAlgoTab(memDC, &client);
             break;
@@ -716,10 +766,59 @@ static void paintWindow(HWND hwnd) {
             break;
         case GUI_STATE_SIMULATION:
             if (g_emu != NULL && g_state != NULL) {
+                /* Sidebar Drawing */
+                HBRUSH sbBrush = CreateSolidBrush(WIN11_OVERLAY);
+                RECT sbRect = { 0, 0, 200, client.bottom };
+                FillRect(memDC, &sbRect, sbBrush);
+                DeleteObject(sbBrush);
+                
+                SetBkMode(memDC, TRANSPARENT);
+                SelectObject(memDC, g_font_title);
+                SetTextColor(memDC, WIN11_TEXT);
+                TextOut(memDC, 20, 20, "Ethos", 5);
+                
+                SelectObject(memDC, g_font_normal);
+                const char* tab_names[] = { "Memory Metrics", "Disk Swap View", "System Queue", "System Logs", "Console Terminal" };
+                for (int i=0; i<5; i++) {
+                    int ty = 60 + (i * 40);
+                    if (g_active_tab == i) {
+                        HBRUSH actBrush = CreateSolidBrush(WIN11_BG);
+                        RECT aRect = { 0, ty, 200, ty + 40 };
+                        FillRect(memDC, &aRect, actBrush);
+                        DeleteObject(actBrush);
+                        /* Accent line */
+                        HBRUSH accent = CreateSolidBrush(WIN11_ACCENT);
+                        RECT lRect = { 0, ty, 4, ty + 40 };
+                        FillRect(memDC, &lRect, accent);
+                        DeleteObject(accent);
+                        SetTextColor(memDC, WIN11_TEXT);
+                    } else {
+                        SetTextColor(memDC, WIN11_TEXT_SEC);
+                    }
+                    TextOut(memDC, 20, ty + 10, tab_names[i], strlen(tab_names[i]));
+                }
+                
+                /* Clock / Tick Count */
+                SelectObject(memDC, g_font_bold);
+                SetTextColor(memDC, WIN11_TEXT);
+                char tickBuf[64];
+                sprintf(tickBuf, "Tick Count: %04d", g_state->current_tick_count);
+                TextOut(memDC, client.right - 180, 20, tickBuf, strlen(tickBuf));
+                
                 switch (g_active_tab) {
                     case TAB_MEMORY:  drawMemoryTab(memDC, &client);  break;
                     case TAB_SWAP:    drawSwapTab(memDC, &client);    break;
                     case TAB_SYSTEM:  drawSystemTab(memDC, &client);  break;
+                    case TAB_LOGS:    drawLogsTab(memDC, &client);    break;
+                    case TAB_CONSOLE: drawLogsTab(memDC, &client);    break;
+                }
+                
+                if (g_active_tab == TAB_CONSOLE) {
+                    ShowWindow(hTxtTerminalIn, SW_SHOW);
+                    ShowWindow(hBtnTerminalSub, SW_SHOW);
+                } else {
+                    ShowWindow(hTxtTerminalIn, SW_HIDE);
+                    ShowWindow(hBtnTerminalSub, SW_HIDE);
                 }
             }
             break;
@@ -822,11 +921,40 @@ static void onConfigStartSim(void) {
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_CREATE:
-            buildConfigAlgoUI(hwnd);
+            buildWelcomeUI(hwnd);
             return 0;
+            
+        case WM_CTLCOLORSTATIC: {
+            HDC hdcStatic = (HDC)wParam;
+            SetTextColor(hdcStatic, WIN11_TEXT);
+            SetBkMode(hdcStatic, TRANSPARENT);
+            return (LRESULT)GetStockObject(NULL_BRUSH);
+        }
+        
+        case WM_CTLCOLOREDIT: {
+            static HBRUSH hEditBrush = NULL;
+            if (!hEditBrush) hEditBrush = CreateSolidBrush(WIN11_SURFACE);
+            HDC hdcEdit = (HDC)wParam;
+            SetTextColor(hdcEdit, WIN11_TEXT);
+            SetBkColor(hdcEdit, WIN11_SURFACE);
+            return (LRESULT)hEditBrush;
+        }
+        
+        case WM_CTLCOLORBTN: {
+            static HBRUSH hBtnBrush = NULL;
+            if (!hBtnBrush) hBtnBrush = CreateSolidBrush(WIN11_SURFACE);
+            return (LRESULT)hBtnBrush;
+        }
         
         case WM_COMMAND: {
             switch (LOWORD(wParam)) {
+                // WELCOME BUTTON
+                case ID_BTN_START: 
+                    g_gui_mode = GUI_STATE_CONFIG_ALGO; 
+                    buildConfigAlgoUI(hwnd); 
+                    InvalidateRect(hwnd, NULL, TRUE); 
+                    break;
+                    
                 // CONFIG BUTTONS
                 case ID_BTN_NEXT:   onConfigAlgoNext(); break;
                 case ID_BTN_BROWSE: BrowseFile(); break;
@@ -844,6 +972,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 case ID_TAB_SWAP: g_active_tab = TAB_SWAP; InvalidateRect(hwnd, NULL, FALSE); break;
                 case ID_TAB_SYS:  g_active_tab = TAB_SYSTEM; InvalidateRect(hwnd, NULL, FALSE); break;
                 case ID_BTN_STEP: SetEvent(g_step_event); break;
+                
+                case 1007: // Terminal Submit
+                    GetWindowText(hTxtTerminalIn, g_terminal_buffer, sizeof(g_terminal_buffer));
+                    SetWindowText(hTxtTerminalIn, "");
+                    SetEvent(g_terminal_event);
+                    break;
                 
                 // EVENTS
                 case ID_CBO_ALGO:
@@ -863,6 +997,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int col = (mx - GRID_X) / CELL_W;
                 int row = (my - GRID_Y) / CELL_H;
                 int new_hover = -1;
+                /* Offset mx by 200 for the taskbar sidebar! */
                 if (col >= 0 && col < GRID_COLS && row >= 0 && row < GRID_ROWS &&
                     mx >= GRID_X && my >= GRID_Y) {
                     new_hover = row * GRID_COLS + col;
@@ -871,6 +1006,21 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 if (new_hover != g_hovered_cell) {
                     g_hovered_cell = new_hover;
                     InvalidateRect(hwnd, NULL, FALSE);
+                }
+            }
+            return 0;
+        }
+        
+        case WM_LBUTTONDOWN: {
+            if (g_gui_mode == GUI_STATE_SIMULATION) {
+                int mx = LOWORD(lParam);
+                int my = HIWORD(lParam);
+                if (mx < 200) {
+                    if (my >= 60 && my < 100) { g_active_tab = TAB_MEMORY; InvalidateRect(hwnd, NULL, FALSE); }
+                    else if (my >= 100 && my < 140) { g_active_tab = TAB_SWAP; InvalidateRect(hwnd, NULL, FALSE); }
+                    else if (my >= 140 && my < 180) { g_active_tab = TAB_SYSTEM; InvalidateRect(hwnd, NULL, FALSE); }
+                    else if (my >= 180 && my < 220) { g_active_tab = TAB_LOGS; InvalidateRect(hwnd, NULL, FALSE); }
+                    else if (my >= 220 && my < 260) { g_active_tab = TAB_CONSOLE; InvalidateRect(hwnd, NULL, FALSE); }
                 }
             }
             return 0;
@@ -951,10 +1101,13 @@ void startGui(Emulator *emu, kernal_state *state) {
     g_emu = emu;
     g_state = state;
     g_running = 1;
-    g_gui_mode = GUI_STATE_CONFIG_ALGO;
+    g_gui_mode = GUI_STATE_WELCOME;
     g_cfg_proc_idx = 0;
     
+    g_use_gui_logs = 1;
+    
     g_step_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+    g_terminal_event = CreateEvent(NULL, FALSE, FALSE, NULL);
     g_config_done_event = CreateEvent(NULL, TRUE, FALSE, NULL); // Manual reset event
     
     g_gui_thread = CreateThread(NULL, 0, guiThreadFunc, NULL, 0, NULL);
@@ -996,9 +1149,31 @@ void stopGui(void) {
         CloseHandle(g_step_event);
         g_step_event = NULL;
     }
+    if (g_terminal_event != NULL) {
+        CloseHandle(g_terminal_event);
+        g_terminal_event = NULL;
+    }
     if (g_config_done_event != NULL) {
         CloseHandle(g_config_done_event);
         g_config_done_event = NULL;
     }
     g_hwnd = NULL;
+}
+
+char* guiWaitForInput(const char* prompt) {
+    if (g_terminal_event == NULL) return NULL;
+    
+    // Switch active tab to Console dynamically
+    g_active_tab = TAB_CONSOLE;
+    emulatorLog("TERMINAL PROMPT: %s", prompt);
+    updateGui();
+    
+    WaitForSingleObject(g_terminal_event, INFINITE);
+    ResetEvent(g_terminal_event);
+    
+    char* copy = strdup(g_terminal_buffer);
+    emulatorLog("USER INPUT: %s", copy);
+    updateGui();
+    
+    return copy;
 }

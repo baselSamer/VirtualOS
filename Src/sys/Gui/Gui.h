@@ -18,4 +18,7 @@ void waitForGuiConfig(void);
 /* Close the GUI window and clean up */
 void stopGui(void);
 
+/* Display prompt in terminal and block until user submits input */
+char* guiWaitForInput(const char* prompt);
+
 #endif
