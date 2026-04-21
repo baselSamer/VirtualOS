@@ -29,72 +29,103 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid) {
     
     int total_slots_needed = 1 + 3 + line_count;
     
+    if (total_slots_needed > 40) {
+        printf("Error: Process %d (size %d) is strictly larger than physical memory!\n", new_pid, total_slots_needed);
+        free(buffer);
+        return -1;
+    }
+
     // 3. Find Space 
     int start_index = find_empty_space(emu, total_slots_needed);
     
     if (start_index == -1) {
-        // MEMORY IS FULL! Trigger the swap out.
-        printf("Memory full! Triggering swap for new Process %d...\n", new_pid);
-        
-        if (swap_out(emu) == -1) {
-            printf("Fatal Error: Swap failed.\n");
+        // MEMORY IS FULL! Write directly to swap file.
+        printf("Memory full! Process %d goes straight to swap disk...\n", new_pid);
+
+        char swap_filename[64];
+        sprintf(swap_filename, "swap_pid_%d.bin", new_pid);
+        FILE *swap_file = fopen(swap_filename, "wb");
+        if (swap_file == NULL) {
+            printf("Fatal Error: Could not create swap file.\n");
             free(buffer);
             return -1;
         }
-        
-        // Now that we kicked someone out, look for space again!
-        start_index = find_empty_space(emu, total_slots_needed);
-        
-        // If it's STILL -1, the new process is literally too big to fit in 40 words
-        if (start_index == -1) {
-            printf("Error: Process %d is too large for memory!\n", new_pid);
-            free(buffer);
-            return -1;
+
+        // write total_slots_needed FIRST
+        fwrite(&total_slots_needed, sizeof(int), 1, swap_file);
+
+        // create PCB struct
+        struct MemoryWord pcb_word;
+        pcb_word.type = MEM_TYPE_PCB;
+        pcb_word.content.pcb_data.ProcessID = new_pid;
+        pcb_word.content.pcb_data.state = READY;
+        pcb_word.content.pcb_data.pc = 4; // since start is 0
+        pcb_word.content.pcb_data.bounds[0] = 0;
+        pcb_word.content.pcb_data.bounds[1] = total_slots_needed - 1;
+        pcb_word.content.pcb_data.bounds[2] = 4;
+        pcb_word.content.pcb_data.bounds[3] = total_slots_needed - 1;
+        fwrite(&pcb_word, sizeof(struct MemoryWord), 1, swap_file);
+
+        // create 3 variables
+        for (int i = 1; i <= 3; i++) {
+            struct MemoryWord var_word;
+            var_word.type = MEM_TYPE_VARIABLE;
+            var_word.content.var_data.name[0] = '\0';
+            var_word.content.var_data.value[0] = '\0';
+            fwrite(&var_word, sizeof(struct MemoryWord), 1, swap_file);
         }
-    }
-    
-    // 4. Allocate PCB (Slot 0)
-    struct MemoryWord *pcb_word = malloc(sizeof(struct MemoryWord));
-    pcb_word->type = MEM_TYPE_PCB;
-    pcb_word->content.pcb_data.ProcessID = new_pid;
-    pcb_word->content.pcb_data.state = READY;
-    pcb_word->content.pcb_data.pc = start_index + 4; 
-    
-    // --> MERGED FIX 1: Set the bounds! [start, total_end, code_start, total_end]
-    pcb_word->content.pcb_data.bounds[0] = start_index;
-    pcb_word->content.pcb_data.bounds[1] = start_index + total_slots_needed - 1;
-    pcb_word->content.pcb_data.bounds[2] = start_index + 4;
-    pcb_word->content.pcb_data.bounds[3] = start_index + total_slots_needed - 1;
-    
-    writeMem(emu, start_index, pcb_word);
-    
-    // 5. Allocate 3 blank Variables
-    for (int i = 1; i <= 3; i++) {
-        struct MemoryWord *var_word = malloc(sizeof(struct MemoryWord));
-        var_word->type = MEM_TYPE_VARIABLE;
+
+        // write instructions
+        char *line = strtok(file_text, "\n"); 
+        while (line != NULL) {
+            struct MemoryWord inst_word;
+            inst_word.type = MEM_TYPE_INSTRUCTION;
+            strncpy(inst_word.content.inst_data.code_line, line, 63);
+            inst_word.content.inst_data.code_line[63] = '\0'; 
+            fwrite(&inst_word, sizeof(struct MemoryWord), 1, swap_file);
+            line = strtok(NULL, "\n"); 
+        }
+
+        fclose(swap_file);
+    } else {
+        // Space available! Load directly into RAM
+        // 4. Allocate PCB (Slot 0)
+        struct MemoryWord *pcb_word = malloc(sizeof(struct MemoryWord));
+        pcb_word->type = MEM_TYPE_PCB;
+        pcb_word->content.pcb_data.ProcessID = new_pid;
+        pcb_word->content.pcb_data.state = READY;
+        pcb_word->content.pcb_data.pc = start_index + 4; 
         
-        // --> MERGED FIX 2: Make sure they are explicitly empty!
-        var_word->content.var_data.name[0] = '\0'; 
-        var_word->content.var_data.value[0] = '\0';
+        pcb_word->content.pcb_data.bounds[0] = start_index;
+        pcb_word->content.pcb_data.bounds[1] = start_index + total_slots_needed - 1;
+        pcb_word->content.pcb_data.bounds[2] = start_index + 4;
+        pcb_word->content.pcb_data.bounds[3] = start_index + total_slots_needed - 1;
         
-        writeMem(emu, start_index + i, var_word);
-    }
-    
-    // 6. Split the file text by Newlines and save them as Instructions
-    int current_slot = start_index + 4;
-    char *line = strtok(file_text, "\n"); 
-    
-    while (line != NULL) {
-        struct MemoryWord *inst_word = malloc(sizeof(struct MemoryWord));
-        inst_word->type = MEM_TYPE_INSTRUCTION;
+        writeMem(emu, start_index, pcb_word);
         
-        strncpy(inst_word->content.inst_data.code_line, line, 63);
-        inst_word->content.inst_data.code_line[63] = '\0'; 
+        // 5. Allocate 3 blank Variables
+        for (int i = 1; i <= 3; i++) {
+            struct MemoryWord *var_word = malloc(sizeof(struct MemoryWord));
+            var_word->type = MEM_TYPE_VARIABLE;
+            var_word->content.var_data.name[0] = '\0'; 
+            var_word->content.var_data.value[0] = '\0';
+            writeMem(emu, start_index + i, var_word);
+        }
         
-        writeMem(emu, current_slot, inst_word);
+        // 6. Split the file text by Newlines and save them as Instructions
+        int current_slot = start_index + 4;
+        char *line = strtok(file_text, "\n"); 
         
-        current_slot++;
-        line = strtok(NULL, "\n"); 
+        while (line != NULL) {
+            struct MemoryWord *inst_word = malloc(sizeof(struct MemoryWord));
+            inst_word->type = MEM_TYPE_INSTRUCTION;
+            strncpy(inst_word->content.inst_data.code_line, line, 63);
+            inst_word->content.inst_data.code_line[63] = '\0'; 
+            writeMem(emu, current_slot, inst_word);
+            
+            current_slot++;
+            line = strtok(NULL, "\n"); 
+        }
     }
     
     free(buffer);
@@ -227,19 +258,15 @@ int swap_in(Emulator *emu, int target_pid) {
     // 3. Find Space in RAM (Evict someone else if necessary)
     int new_start_index = find_empty_space(emu, total_slots);
     
-    if (new_start_index == -1) {
+    while (new_start_index == -1) {
         printf("Memory full! Evicting another process to swap in PID %d...\n", target_pid);
         if (swap_out(emu) == -1) {
+            printf("Fatal Error: Swap failed during swap_in.\n");
             fclose(swap_file);
             return -1; // Failed to clear space
         }
         
         new_start_index = find_empty_space(emu, total_slots);
-        if (new_start_index == -1) {
-            printf("Fatal Error: Still no space after swap_out!\n");
-            fclose(swap_file);
-            return -1;
-        }
     }
 
     // 4. Read the structs into memory and handle the Relocation Math
