@@ -257,7 +257,7 @@ void schedule_RR(Emulator *emu, kernal_state *state) {
             char event[96];
             autoReleaseProcessResources(state, active_pcb->ProcessID);
             printToConsole("  | RR      | Process %d finished, freeing memory", active_pcb->ProcessID);
-            for (int i = active_pcb->bounds[0]; i <= active_pcb->bounds[1]; i++) {
+            for (int i = active_pcb->bounds[0] - 1; i <= active_pcb->bounds[3]; i++) {
                 freeMemLoc(emu, i); 
             }
             snprintf(event, sizeof(event), "Process %d finished", active_pcb->ProcessID);
@@ -354,7 +354,7 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
             char event[96];
             autoReleaseProcessResources(state, active_pcb->ProcessID);
             printToConsole("  | HRRN    | Process %d terminated, freeing memory", active_pcb->ProcessID);
-            for (int i = active_pcb->bounds[0]; i <= active_pcb->bounds[1]; i++) {
+            for (int i = active_pcb->bounds[0] - 1; i <= active_pcb->bounds[3]; i++) {
                 freeMemLoc(emu, i); 
             }
             snprintf(event, sizeof(event), "Process %d finished", active_pcb->ProcessID);
@@ -482,7 +482,7 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
             char event[96];
             autoReleaseProcessResources(state, active_pcb->ProcessID);
             printToConsole("  | MLFQ    | Process %d terminated, freeing memory", active_pcb->ProcessID);
-            for (int i = active_pcb->bounds[0]; i <= active_pcb->bounds[1]; i++) {
+            for (int i = active_pcb->bounds[0] - 1; i <= active_pcb->bounds[3]; i++) {
                 freeMemLoc(emu, i); 
             }
             snprintf(event, sizeof(event), "Process %d finished", active_pcb->ProcessID);

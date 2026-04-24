@@ -24,8 +24,8 @@ static int findOwnerPidForSlot(Emulator *emu, int slot) {
     for (int i = 0; i < 40; i++) {
         struct MemoryWord *word = (struct MemoryWord*)readMem(emu, i);
         if (word != NULL && word->type == MEM_TYPE_PCB) {
-            int start = word->content.pcb_data.bounds[0];
-            int end = word->content.pcb_data.bounds[1];
+            int start = word->content.pcb_data.bounds[0] - 1; /* PCB slot */
+            int end = word->content.pcb_data.bounds[3];        /* last instruction */
             if (slot >= start && slot <= end) {
                 return word->content.pcb_data.ProcessID;
             }

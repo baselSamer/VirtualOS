@@ -235,8 +235,8 @@ static void computeSlotOwnership(int *slot_pids) {
         struct MemoryWord *word = (struct MemoryWord*)readMem(g_emu, i);
         if (word != NULL && word->type == MEM_TYPE_PCB) {
             int pid = word->content.pcb_data.ProcessID;
-            int start = word->content.pcb_data.bounds[0];
-            int end = word->content.pcb_data.bounds[1];
+            int start = word->content.pcb_data.bounds[0] - 1; /* PCB slot */
+            int end = word->content.pcb_data.bounds[3];        /* last instruction */
             for (int j = start; j <= end && j < 40; j++) {
                 slot_pids[j] = pid;
             }

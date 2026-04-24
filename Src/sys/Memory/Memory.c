@@ -76,7 +76,9 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid, ker
                 line_count++;
             }
         }
-        line_count++;
+        if (file_size > 0 && file_text[file_size - 1] != '\n') {
+            line_count++;
+        }
     }
     
     int total_slots_needed = 1 + 3 + line_count;
@@ -267,7 +269,7 @@ int swap_out(Emulator *emu) {
     }
 
     // Get the victim's details from its PCB
-    int victim_end = victim_pcb->content.pcb_data.bounds[1];
+    int victim_end = victim_pcb->content.pcb_data.bounds[3];
     int victim_pid = victim_pcb->content.pcb_data.ProcessID;
 
     // 2. Open a temporary swap file (using standard C file I/O for OS-level tasks)
@@ -310,8 +312,8 @@ int set_variable(Emulator *emu, int pid, const char *name, const char *value) {
     
     int start_bound = pcb->bounds[0];
     
-    /* Variables are at slots start_bound + 1, start_bound + 2, start_bound + 3 */
-    for (int i = 1; i <= 3; i++) {
+    /* Variables are at slots start_bound, start_bound + 1, start_bound + 2 */
+    for (int i = 0; i <= 2; i++) {
         struct MemoryWord *word = (struct MemoryWord*)readMem(emu, start_bound + i);
         if (word != NULL && word->type == MEM_TYPE_VARIABLE) {
             /* If empty or matches name, assign here */
@@ -334,7 +336,7 @@ char* get_variable(Emulator *emu, int pid, const char *name) {
     
     int start_bound = pcb->bounds[0];
     
-    for (int i = 1; i <= 3; i++) {
+    for (int i = 0; i <= 2; i++) {
         struct MemoryWord *word = (struct MemoryWord*)readMem(emu, start_bound + i);
         if (word != NULL && word->type == MEM_TYPE_VARIABLE) {
             if (strcmp(word->content.var_data.name, name) == 0) {
