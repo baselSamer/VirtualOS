@@ -403,9 +403,14 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
             PCB* process_PCB = findPCB_FromID(emu, process_id);
 
             if (process_PCB == NULL) {
-                printToConsole("  | HRRN    | Warning: Process %d not in RAM", process_id);
-            } 
-            else {
+                // Process is swapped out to disk — swap it back in to evaluate
+                printToConsole("  | HRRN    | Process %d not in RAM, swapping in for evaluation", process_id);
+                if (swap_in(emu, process_id) == 0) {
+                    process_PCB = findPCB_FromID(emu, process_id);
+                }
+            }
+
+            if (process_PCB != NULL) {
                 // 1. Find Arrival Time
                 int arrival_time = 0;
                 for (int j = 0; j < state->num_scheduled_processes; j++) {
@@ -427,6 +432,8 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
                     highest_ratio = response_ratio;
                     winner_pid = process_id;
                 }
+            } else {
+                printToConsole("  | HRRN    | Warning: Process %d could not be loaded, skipping", process_id);
             }
 
             // CRITICAL: Put the process back in line so we don't lose it!
