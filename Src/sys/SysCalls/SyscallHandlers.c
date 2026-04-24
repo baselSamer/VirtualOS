@@ -25,20 +25,13 @@ SyscallResultData syscall_print(
     }
     
     int pid = getActivePCB(emu)->ProcessID;
-    int implicit_lock = 0;
 
-    /* Ensure we have console write access */
-    if (state->mutexes->ConsoleWrite != -1 && state->mutexes->ConsoleWrite != pid) {
+    /* Require explicit semWait ownership; no implicit lock acquisition */
+    if (state->mutexes->ConsoleWrite != pid) {
         state->flags->blocked = BLOCKED_CON_WRITE;
         result.blocked = 1;
         result.code = SYSCALL_BLOCKED;
         return result;
-    }
-    
-    /* Implicitly acquire if free */
-    if (state->mutexes->ConsoleWrite == -1) {
-        state->mutexes->ConsoleWrite = pid;
-        implicit_lock = 1;
     }
 
     /* Print the argument */
@@ -53,11 +46,6 @@ SyscallResultData syscall_print(
         printToConsole("%s", val);
     } else {
         printToConsole("%s", instr->arg1);
-    }
-    
-    if (implicit_lock) {
-        state->mutexes->ConsoleWrite = -1;
-        state->flags->unblocked_con_write = 1;
     }
     
     state->flags->blocked = BLOCKED_NONE;
@@ -83,19 +71,14 @@ SyscallResultData syscall_assign(
     }
     
     int pid = getActivePCB(emu)->ProcessID;
-    int implicit_lock = 0;
 
-    /* If assigning from user input, need ConsoleRead */
+    /* If assigning from user input, require explicit semWait ownership */
     if (strcmp(instr->arg2, "input") == 0) {
-        if (state->mutexes->ConsoleRead != -1 && state->mutexes->ConsoleRead != pid) {
+        if (state->mutexes->ConsoleRead != pid) {
             state->flags->blocked = BLOCKED_CON_READ;
             result.blocked = 1;
             result.code = SYSCALL_BLOCKED;
             return result;
-        }
-        if (state->mutexes->ConsoleRead == -1) {
-            state->mutexes->ConsoleRead = pid;
-            implicit_lock = 1;
         }
     }
 
@@ -116,10 +99,6 @@ SyscallResultData syscall_assign(
             state->flags->blocked = BLOCKED_FILE;
             result.blocked = 1;
             result.code = SYSCALL_BLOCKED;
-            if (implicit_lock) {
-                state->mutexes->ConsoleRead = -1;
-                state->flags->unblocked_con_read = 1;
-            }
             return result;
         }
         void *file_data = NULL;
@@ -139,10 +118,6 @@ SyscallResultData syscall_assign(
         set_variable(emu, pid, instr->arg1, val && strlen(val) > 0 ? val : instr->arg2);
     }
     
-    if (implicit_lock) {
-        state->mutexes->ConsoleRead = -1;
-        state->flags->unblocked_con_read = 1;
-    }
     state->flags->blocked = BLOCKED_NONE;
 
     return result;
@@ -257,20 +232,13 @@ SyscallResultData syscall_printFromTo(
     }
 
     int pid = getActivePCB(emu)->ProcessID;
-    int implicit_lock = 0;
 
-    /* Ensure we have console write access */
-    if (state->mutexes->ConsoleWrite != -1 && state->mutexes->ConsoleWrite != pid) {
+    /* Require explicit semWait ownership; no implicit lock acquisition */
+    if (state->mutexes->ConsoleWrite != pid) {
         state->flags->blocked = BLOCKED_CON_WRITE;
         result.blocked = 1;
         result.code = SYSCALL_BLOCKED;
         return result;
-    }
-    
-    /* Implicitly acquire if free */
-    if (state->mutexes->ConsoleWrite == -1) {
-        state->mutexes->ConsoleWrite = pid;
-        implicit_lock = 1;
     }
 
     /* Parse range arguments and print */
@@ -289,10 +257,6 @@ SyscallResultData syscall_printFromTo(
     }
     printToConsole("%s", out_buf);
     
-    if (implicit_lock) {
-        state->mutexes->ConsoleWrite = -1;
-        state->flags->unblocked_con_write = 1;
-    }
     state->flags->blocked = BLOCKED_NONE;
 
     return result;
