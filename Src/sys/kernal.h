@@ -38,6 +38,7 @@ typedef struct kernal_state {
     int gui_mode;
     int auto_release_resources;
     int skip_empty_lines_on_load;
+    int terminate_on_syntax_error;
     
     flags *flags;
     

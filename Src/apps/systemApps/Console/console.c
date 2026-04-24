@@ -47,6 +47,12 @@ int console(Emulator *emu, kernal_state *state) {
     printToConsole("  >> Skip empty lines: %s", state->skip_empty_lines_on_load ? "enabled" : "disabled");
     printToConsole("");
 
+    printToConsole("  Terminate process on syntax error (non-empty lines only)? [1=yes, 0=no]: ");
+    readFromConsole("%d", &state->terminate_on_syntax_error);
+    state->terminate_on_syntax_error = (state->terminate_on_syntax_error != 0) ? 1 : 0;
+    printToConsole("  >> Terminate on syntax error: %s", state->terminate_on_syntax_error ? "enabled" : "disabled");
+    printToConsole("");
+
     // Ask for the number of processes
     printToConsole("  Enter number of processes: ");
     int num_processes;

@@ -2,3 +2,14 @@
 [FLAGS] created tick=0
 [KERNEL_STARTUP] kernel state initialized (tick=0, gui=0)
 [KERNEL] Execution loop started
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=0)
+[KERNEL] Execution loop started
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=0)
+[KERNEL] Execution loop started
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)

@@ -5,6 +5,21 @@
 #include <string.h>
 #include <ctype.h>
 
+static int isEmptyInstructionLine(const char *line) {
+    if (line == NULL) {
+        return 1;
+    }
+
+    while (*line != '\0') {
+        if (!isspace((unsigned char)*line)) {
+            return 0;
+        }
+        line++;
+    }
+
+    return 1;
+}
+
 /* Helper function to parse resource type */
 static ResourceType parseResourceType(const char *resource_str) {
     if (resource_str == NULL) {
@@ -216,6 +231,17 @@ int parse_and_execute(const char* code_line, int pid, kernal_state *state, Emula
     
     Instruction instr = parseInstruction(code_line, 0);
     if (!instr.valid) {
+        if (state != NULL && emu != NULL && state->terminate_on_syntax_error && !isEmptyInstructionLine(code_line)) {
+            PCB *active_pcb = getActivePCB(emu);
+            if (active_pcb != NULL && active_pcb->ProcessID == pid) {
+                active_pcb->state = TERMINATED;
+                printToConsole("  | PCB: %-3d | *** TERMINATED (SYNTAX ERROR) ***", pid);
+                emulatorLog("[PARSER] pid=%d action=terminate reason=syntax_error", pid);
+                freeInstruction(&instr);
+                return 1;
+            }
+        }
+
         freeInstruction(&instr);
         return 0; /* Invalid instructions just skip/fail silently for now */
     }
