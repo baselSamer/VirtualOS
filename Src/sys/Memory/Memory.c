@@ -388,7 +388,7 @@ int swap_in(Emulator *emu, int target_pid) {
         
         // If this is the PCB (which is always the first word), update its pointers!
         if (word->type == MEM_TYPE_PCB) {
-            int old_start = word->content.pcb_data.bounds[0];
+            int old_start = word->content.pcb_data.bounds[0] - 1; // PCB sits one before var_start
             offset = new_start_index - old_start; // Calculate the shift distance
             
             // Shift the bounds to the new parking spot
