@@ -36,6 +36,8 @@ typedef struct flags {
 typedef struct kernal_state {
     int current_tick_count;
     int gui_mode;
+    int auto_release_resources;
+    int skip_empty_lines_on_load;
     
     flags *flags;
     

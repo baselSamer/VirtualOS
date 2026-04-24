@@ -43,6 +43,8 @@
 #define ID_TXT_QUANTUM  2002
 #define ID_TXT_PROCS    2003
 #define ID_BTN_NEXT     2004
+#define ID_CHK_AUTO_REL 2005
+#define ID_CHK_SKIP_EMP 2006
 
 #define ID_TXT_ARRIVE   3001
 #define ID_BTN_BROWSE   3002
@@ -122,12 +124,15 @@ static int g_cfg_algo = 0;
 static int g_cfg_quantum = 2;
 static int g_cfg_num_procs = 0;
 static int g_cfg_proc_idx = 0;
+static int g_cfg_auto_release_resources = 0;
+static int g_cfg_skip_empty_lines = 0;
 
 static int *g_temp_arrivals = NULL;
 static char **g_temp_paths = NULL;
 
 /* Child HWNDs */
 static HWND hCboAlgo, hTxtQuantum, hTxtProcs, hBtnNext;
+static HWND hChkAutoRelease, hChkSkipEmpty;
 static HWND hTxtArrive, hBtnBrowse, hBtnPrevPro, hBtnNextPro;
 static HWND hTabMem, hTabSwap, hTabSys, hBtnStep;
 
@@ -342,6 +347,23 @@ static void drawWelcomeTab(HDC hdc, RECT *client) {
 /* ========== STATE: CONFIG ALGO ========== */
 static void buildConfigAlgoUI(HWND hwnd) {
     DestroyAllChildWindows(hwnd);
+
+    char quantumBuf[16];
+    char procsBuf[16];
+    int procsDefault;
+    int comboIndex;
+
+    if (g_cfg_quantum <= 0) {
+        g_cfg_quantum = 2;
+    }
+    procsDefault = (g_cfg_num_procs > 0) ? g_cfg_num_procs : 3;
+
+    if (g_cfg_algo == SCHED_HRRN) comboIndex = 1;
+    else if (g_cfg_algo == SCHED_MLFQ) comboIndex = 2;
+    else comboIndex = 0;
+
+    sprintf(quantumBuf, "%d", g_cfg_quantum);
+    sprintf(procsBuf, "%d", procsDefault);
     
     CreateWindow("STATIC", "Scheduling Algorithm:", WS_CHILD | WS_VISIBLE, 
                  300, 200, 200, 20, hwnd, NULL, NULL, NULL);
@@ -350,20 +372,31 @@ static void buildConfigAlgoUI(HWND hwnd) {
     SendMessage(hCboAlgo, CB_ADDSTRING, 0, (LPARAM)"Round Robin (RR)");
     SendMessage(hCboAlgo, CB_ADDSTRING, 0, (LPARAM)"Highest Response Ratio Next (HRRN)");
     SendMessage(hCboAlgo, CB_ADDSTRING, 0, (LPARAM)"Multi-Level Feedback Queue (MLFQ)");
-    SendMessage(hCboAlgo, CB_SETCURSEL, 0, 0);
+    SendMessage(hCboAlgo, CB_SETCURSEL, comboIndex, 0);
 
     CreateWindow("STATIC", "Time Quantum (RR only):", WS_CHILD | WS_VISIBLE, 
                  300, 270, 200, 20, hwnd, NULL, NULL, NULL);
-    hTxtQuantum = CreateWindow("EDIT", "2", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | WS_TABSTOP,
+    hTxtQuantum = CreateWindow("EDIT", quantumBuf, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | WS_TABSTOP,
                  300, 290, 80, 25, hwnd, (HMENU)ID_TXT_QUANTUM, NULL, NULL);
+    EnableWindow(hTxtQuantum, (comboIndex == 0));
 
     CreateWindow("STATIC", "Number of Processes:", WS_CHILD | WS_VISIBLE, 
                  300, 340, 200, 20, hwnd, NULL, NULL, NULL);
-    hTxtProcs = CreateWindow("EDIT", "3", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | WS_TABSTOP,
+    hTxtProcs = CreateWindow("EDIT", procsBuf, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | WS_TABSTOP,
                  300, 360, 80, 25, hwnd, (HMENU)ID_TXT_PROCS, NULL, NULL);
 
+    hChkAutoRelease = CreateWindow("BUTTON", "Auto release resources on process termination", 
+                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP,
+                 300, 395, 360, 24, hwnd, (HMENU)ID_CHK_AUTO_REL, NULL, NULL);
+    SendMessage(hChkAutoRelease, BM_SETCHECK, g_cfg_auto_release_resources ? BST_CHECKED : BST_UNCHECKED, 0);
+
+    hChkSkipEmpty = CreateWindow("BUTTON", "Skip empty lines while loading programs", 
+                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP,
+                 300, 423, 340, 24, hwnd, (HMENU)ID_CHK_SKIP_EMP, NULL, NULL);
+    SendMessage(hChkSkipEmpty, BM_SETCHECK, g_cfg_skip_empty_lines ? BST_CHECKED : BST_UNCHECKED, 0);
+
     hBtnNext = CreateWindow("BUTTON", "Next ->", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-                 500, 420, 120, 35, hwnd, (HMENU)ID_BTN_NEXT, NULL, NULL);
+                 500, 465, 120, 35, hwnd, (HMENU)ID_BTN_NEXT, NULL, NULL);
                  
     EnumChildWindows(hwnd, (WNDENUMPROC)SendMessage, (LPARAM)WM_SETFONT);
     SendMessage(hwnd, WM_SETFONT, (WPARAM)g_font_normal, MAKELPARAM(TRUE, 0));
@@ -373,6 +406,8 @@ static void buildConfigAlgoUI(HWND hwnd) {
     SendMessage(hCboAlgo, WM_SETFONT, (WPARAM)sysFont, 0);
     SendMessage(hTxtQuantum, WM_SETFONT, (WPARAM)sysFont, 0);
     SendMessage(hTxtProcs, WM_SETFONT, (WPARAM)sysFont, 0);
+    SendMessage(hChkAutoRelease, WM_SETFONT, (WPARAM)sysFont, 0);
+    SendMessage(hChkSkipEmpty, WM_SETFONT, (WPARAM)sysFont, 0);
     SendMessage(hBtnNext, WM_SETFONT, (WPARAM)sysFont, 0);
 }
 
@@ -1057,6 +1092,9 @@ static void onConfigAlgoNext(void) {
     
     GetWindowText(hTxtProcs, buf, 64);
     g_cfg_num_procs = atoi(buf);
+
+    g_cfg_auto_release_resources = (SendMessage(hChkAutoRelease, BM_GETCHECK, 0, 0) == BST_CHECKED) ? 1 : 0;
+    g_cfg_skip_empty_lines = (SendMessage(hChkSkipEmpty, BM_GETCHECK, 0, 0) == BST_CHECKED) ? 1 : 0;
     
     if (g_cfg_num_procs <= 0 || g_cfg_num_procs > 10) {
         MessageBox(g_hwnd, "Number of processes must be between 1 and 10.", "Error", MB_ICONERROR);
@@ -1108,6 +1146,8 @@ static void onConfigStartSim(void) {
     // Write directly to Kernel State
     g_state->current_algo = g_cfg_algo;
     g_state->time_quantum = g_cfg_quantum;
+    g_state->auto_release_resources = g_cfg_auto_release_resources;
+    g_state->skip_empty_lines_on_load = g_cfg_skip_empty_lines;
     g_state->num_scheduled_processes = g_cfg_num_procs;
     g_state->scheduled_processes = malloc(sizeof(ArrivalConfig) * g_cfg_num_procs);
     
@@ -1366,6 +1406,11 @@ void startGui(Emulator *emu, kernal_state *state) {
     g_running = 1;
     g_gui_mode = GUI_STATE_WELCOME;
     g_cfg_proc_idx = 0;
+    g_cfg_algo = SCHED_RR;
+    g_cfg_quantum = 2;
+    g_cfg_num_procs = 0;
+    g_cfg_auto_release_resources = 0;
+    g_cfg_skip_empty_lines = 0;
     
     g_use_gui_logs = 1;
     setConsoleOutputPassthrough(0);

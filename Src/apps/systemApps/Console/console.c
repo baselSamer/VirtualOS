@@ -35,6 +35,18 @@ int console(Emulator *emu, kernal_state *state) {
         printToConsole("");
     }
 
+    printToConsole("  Enable auto release resources on process termination? [1=yes, 0=no]: ");
+    readFromConsole("%d", &state->auto_release_resources);
+    state->auto_release_resources = (state->auto_release_resources != 0) ? 1 : 0;
+    printToConsole("  >> Auto release resources: %s", state->auto_release_resources ? "enabled" : "disabled");
+    printToConsole("");
+
+    printToConsole("  Enable skip empty lines while loading programs? [1=yes, 0=no]: ");
+    readFromConsole("%d", &state->skip_empty_lines_on_load);
+    state->skip_empty_lines_on_load = (state->skip_empty_lines_on_load != 0) ? 1 : 0;
+    printToConsole("  >> Skip empty lines: %s", state->skip_empty_lines_on_load ? "enabled" : "disabled");
+    printToConsole("");
+
     // Ask for the number of processes
     printToConsole("  Enter number of processes: ");
     int num_processes;

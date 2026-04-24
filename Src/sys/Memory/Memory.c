@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "../../emu/Files/Files.h" // Assuming you fixed the FIles typo!
 #include "./Memory.h"
+#include "../kernal.h"
 #include "../../emu/Mem/Mem.h"
 #include "../../emu/Console/Console.h"
 
@@ -11,7 +12,22 @@ static void printSwapFormatSummary(const char *swap_filename, int pid, int total
     printToConsole("  | DISK    | Format: [int total_slots=%d] + [%d MemoryWord entries]", total_slots, total_slots);
 }
 
-int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid) {
+static int isEmptyLine(const char *line) {
+    if (line == NULL) {
+        return 1;
+    }
+
+    while (*line != '\0') {
+        if (*line != ' ' && *line != '\t' && *line != '\r') {
+            return 0;
+        }
+        line++;
+    }
+
+    return 1;
+}
+
+int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid, kernal_state *state) {
     void *buffer = NULL;
     
     // 1. Ask the Hardware (Emulator) to read the disk
@@ -21,23 +37,53 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid) {
         return -1;
     }
     
-    // Cast the raw buffer to a standard C string
-    char *file_text = (char *)buffer;
-    
-    // 2. Count the lines
-    int line_count = 0;
-    for (size_t i = 0; i < file_size; i++) {
-        if (file_text[i] == '\n') {
-            line_count++;
-        }
+    char *file_text = malloc(file_size + 1);
+    if (file_text == NULL) {
+        free(buffer);
+        return -1;
     }
-    line_count++; 
+    memcpy(file_text, buffer, file_size);
+    file_text[file_size] = '\0';
+    free(buffer);
+
+    int skip_empty_lines = 0;
+    if (state != NULL && state->skip_empty_lines_on_load) {
+        skip_empty_lines = 1;
+    }
+
+    // 2. Count the lines according to loading mode
+    int line_count = 0;
+    if (skip_empty_lines) {
+        char *scan_text = malloc(file_size + 1);
+        if (scan_text == NULL) {
+            free(file_text);
+            return -1;
+        }
+        memcpy(scan_text, file_text, file_size + 1);
+
+        char *line = strtok(scan_text, "\n");
+        while (line != NULL) {
+            if (!isEmptyLine(line)) {
+                line_count++;
+            }
+            line = strtok(NULL, "\n");
+        }
+
+        free(scan_text);
+    } else {
+        for (size_t i = 0; i < file_size; i++) {
+            if (file_text[i] == '\n') {
+                line_count++;
+            }
+        }
+        line_count++;
+    }
     
     int total_slots_needed = 1 + 3 + line_count;
     
     if (total_slots_needed > 40) {
         printToConsole("Error: Process %d (size %d) is strictly larger than physical memory!", new_pid, total_slots_needed);
-        free(buffer);
+        free(file_text);
         return -1;
     }
 
@@ -53,7 +99,7 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid) {
         FILE *swap_file = fopen(swap_filename, "wb");
         if (swap_file == NULL) {
             printToConsole("Fatal Error: Could not create swap file.");
-            free(buffer);
+            free(file_text);
             return -1;
         }
 
@@ -82,8 +128,13 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid) {
         }
 
         // write instructions
-        char *line = strtok(file_text, "\n"); 
+        char *line = strtok(file_text, "\n");
         while (line != NULL) {
+            if (skip_empty_lines && isEmptyLine(line)) {
+                line = strtok(NULL, "\n");
+                continue;
+            }
+
             struct MemoryWord inst_word;
             inst_word.type = MEM_TYPE_INSTRUCTION;
             strncpy(inst_word.content.inst_data.code_line, line, 63);
@@ -121,9 +172,14 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid) {
         
         // 6. Split the file text by Newlines and save them as Instructions
         int current_slot = start_index + 4;
-        char *line = strtok(file_text, "\n"); 
+        char *line = strtok(file_text, "\n");
         
         while (line != NULL) {
+            if (skip_empty_lines && isEmptyLine(line)) {
+                line = strtok(NULL, "\n");
+                continue;
+            }
+
             struct MemoryWord *inst_word = malloc(sizeof(struct MemoryWord));
             inst_word->type = MEM_TYPE_INSTRUCTION;
             strncpy(inst_word->content.inst_data.code_line, line, 63);
@@ -135,7 +191,7 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid) {
         }
     }
     
-    free(buffer);
+    free(file_text);
     return 0;
 }
 
