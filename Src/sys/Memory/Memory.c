@@ -112,8 +112,8 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid, ker
         pcb_word.content.pcb_data.ProcessID = new_pid;
         pcb_word.content.pcb_data.state = READY;
         pcb_word.content.pcb_data.pc = 4; // since start is 0
-        pcb_word.content.pcb_data.bounds[0] = 0;
-        pcb_word.content.pcb_data.bounds[1] = total_slots_needed - 1;
+        pcb_word.content.pcb_data.bounds[0] = 1;
+        pcb_word.content.pcb_data.bounds[1] = 3;
         pcb_word.content.pcb_data.bounds[2] = 4;
         pcb_word.content.pcb_data.bounds[3] = total_slots_needed - 1;
         fwrite(&pcb_word, sizeof(struct MemoryWord), 1, swap_file);
@@ -154,8 +154,8 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid, ker
         pcb_word->content.pcb_data.state = READY;
         pcb_word->content.pcb_data.pc = start_index + 4; 
         
-        pcb_word->content.pcb_data.bounds[0] = start_index;
-        pcb_word->content.pcb_data.bounds[1] = start_index + total_slots_needed - 1;
+        pcb_word->content.pcb_data.bounds[0] = start_index + 1;
+        pcb_word->content.pcb_data.bounds[1] = start_index + 3;
         pcb_word->content.pcb_data.bounds[2] = start_index + 4;
         pcb_word->content.pcb_data.bounds[3] = start_index + total_slots_needed - 1;
         
