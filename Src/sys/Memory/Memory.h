@@ -32,7 +32,9 @@ struct MemoryWord
     } content;
 };
 
-int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid);
+struct kernal_state;
+
+int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid, struct kernal_state *state);
 int find_empty_space(Emulator *emu, int required_slots);
 int swap_out(Emulator *emu);
 int swap_in(Emulator *emu, int target_pid);

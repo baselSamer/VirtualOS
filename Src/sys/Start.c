@@ -38,6 +38,8 @@ static kernal_state* createKernalState(void) {
 
     state->current_tick_count = 0;
     state->gui_mode = 0;
+    state->auto_release_resources = 0;
+    state->skip_empty_lines_on_load = 0;
 
     state->flags = NULL;
     createNewFlags(state);

@@ -112,6 +112,36 @@ static void printQueueSnapshot(kernal_state *state, const char *event_name) {
     printToConsole("  | QUEUES  | BlockedIn=%s  BlockedOut=%s  BlockedFile=%s  BlockedAll=%s", bin, bout, bfile, bgeneral);
 }
 
+static void autoReleaseProcessResources(kernal_state *state, int pid) {
+    if (state == NULL || !state->auto_release_resources) {
+        return;
+    }
+
+    int released_any = 0;
+
+    if (state->mutexes->ConsoleRead == pid) {
+        state->mutexes->ConsoleRead = -1;
+        state->flags->unblocked_con_read = 1;
+        released_any = 1;
+    }
+
+    if (state->mutexes->ConsoleWrite == pid) {
+        state->mutexes->ConsoleWrite = -1;
+        state->flags->unblocked_con_write = 1;
+        released_any = 1;
+    }
+
+    if (state->mutexes->File == pid) {
+        state->mutexes->File = -1;
+        state->flags->unblocked_file = 1;
+        released_any = 1;
+    }
+
+    if (released_any) {
+        printToConsole("  | SCHED   | Auto-released resources held by P%d", pid);
+    }
+}
+
 // --- RESOURCE MANAGEMENT (MUTEX LOGIC) ---
 
 // Adds the process to BOTH queues as requested by the rubric
@@ -183,7 +213,7 @@ void scheduler(Emulator *emu, kernal_state *state) {
         if (state->scheduled_processes[i].spawn_time == current_time) {
             printToConsole("  | SPAWN   | Loading Process %d...", state->scheduled_processes[i].pid);
             
-            if (load_process_to_memory(emu, state->scheduled_processes[i].filepath, state->scheduled_processes[i].pid) == 0) {
+            if (load_process_to_memory(emu, state->scheduled_processes[i].filepath, state->scheduled_processes[i].pid, state) == 0) {
                 char event[96];
                 enqueue(&state->ready_queue, state->scheduled_processes[i].pid);
                 printToConsole("  | SPAWN   | Process %d -> Ready Queue", state->scheduled_processes[i].pid);
@@ -220,6 +250,7 @@ void schedule_RR(Emulator *emu, kernal_state *state) {
     if (active_pcb != NULL) {
         if (active_pcb->state == TERMINATED) {
             char event[96];
+            autoReleaseProcessResources(state, active_pcb->ProcessID);
             printToConsole("  | RR      | Process %d finished, freeing memory", active_pcb->ProcessID);
             for (int i = active_pcb->bounds[0]; i <= active_pcb->bounds[1]; i++) {
                 freeMemLoc(emu, i); 
@@ -316,6 +347,7 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
         // CASE A: The Process Terminated
         if (active_pcb->state == TERMINATED) {
             char event[96];
+            autoReleaseProcessResources(state, active_pcb->ProcessID);
             printToConsole("  | HRRN    | Process %d terminated, freeing memory", active_pcb->ProcessID);
             for (int i = active_pcb->bounds[0]; i <= active_pcb->bounds[1]; i++) {
                 freeMemLoc(emu, i); 
@@ -436,6 +468,7 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
         // CASE A: Terminated
         if (active_pcb->state == TERMINATED) {
             char event[96];
+            autoReleaseProcessResources(state, active_pcb->ProcessID);
             printToConsole("  | MLFQ    | Process %d terminated, freeing memory", active_pcb->ProcessID);
             for (int i = active_pcb->bounds[0]; i <= active_pcb->bounds[1]; i++) {
                 freeMemLoc(emu, i); 
