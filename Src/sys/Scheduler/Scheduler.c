@@ -166,10 +166,15 @@ void unblockProcess(kernal_state *state, Queue* resourceQueue) {
     // Fish it out of the general queue
     removeFromGeneralQueue(&state->general_blocked_queue, pid);
     
-    // For MLFQ, reinsert at L1 so it does not jump back to the top queue.
+    // For MLFQ, option can return to L0; default behavior keeps returning to L1.
     if (state->current_algo == SCHED_MLFQ) {
-        enqueue(&state->ready_queue_1, pid);
-        printToConsole("  | SCHED   | Process %d UNBLOCKED -> ready queue L1", pid);
+        if (state->mlfq_unblock_to_l0) {
+            enqueue(&state->ready_queue, pid);
+            printToConsole("  | SCHED   | Process %d UNBLOCKED -> ready queue L0", pid);
+        } else {
+            enqueue(&state->ready_queue_1, pid);
+            printToConsole("  | SCHED   | Process %d UNBLOCKED -> ready queue L1", pid);
+        }
     } else {
         // RR/HRRN use the single ready queue.
         enqueue(&state->ready_queue, pid);

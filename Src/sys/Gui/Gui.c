@@ -46,6 +46,7 @@
 #define ID_CHK_AUTO_REL 2005
 #define ID_CHK_SKIP_EMP 2006
 #define ID_CHK_TERM_SYN 2007
+#define ID_CHK_MLFQ_L0  2008
 
 #define ID_TXT_ARRIVE   3001
 #define ID_BTN_BROWSE   3002
@@ -128,13 +129,14 @@ static int g_cfg_proc_idx = 0;
 static int g_cfg_auto_release_resources = 0;
 static int g_cfg_skip_empty_lines = 0;
 static int g_cfg_terminate_on_syntax_error = 0;
+static int g_cfg_mlfq_unblock_to_l0 = 0;
 
 static int *g_temp_arrivals = NULL;
 static char **g_temp_paths = NULL;
 
 /* Child HWNDs */
 static HWND hCboAlgo, hTxtQuantum, hTxtProcs, hBtnNext;
-static HWND hChkAutoRelease, hChkSkipEmpty, hChkTerminateSyntax;
+static HWND hChkAutoRelease, hChkSkipEmpty, hChkTerminateSyntax, hChkMlfqUnblockL0;
 static HWND hTxtArrive, hBtnBrowse, hBtnPrevPro, hBtnNextPro;
 static HWND hTabMem, hTabSwap, hTabSys, hBtnStep;
 
@@ -402,8 +404,14 @@ static void buildConfigAlgoUI(HWND hwnd) {
                  300, 451, 380, 24, hwnd, (HMENU)ID_CHK_TERM_SYN, NULL, NULL);
     SendMessage(hChkTerminateSyntax, BM_SETCHECK, g_cfg_terminate_on_syntax_error ? BST_CHECKED : BST_UNCHECKED, 0);
 
+    hChkMlfqUnblockL0 = CreateWindow("BUTTON", "MLFQ: unblocked process returns to L0 queue", 
+                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP,
+                 300, 479, 360, 24, hwnd, (HMENU)ID_CHK_MLFQ_L0, NULL, NULL);
+    SendMessage(hChkMlfqUnblockL0, BM_SETCHECK, g_cfg_mlfq_unblock_to_l0 ? BST_CHECKED : BST_UNCHECKED, 0);
+    EnableWindow(hChkMlfqUnblockL0, (comboIndex == 2));
+
     hBtnNext = CreateWindow("BUTTON", "Next ->", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-                 500, 495, 120, 35, hwnd, (HMENU)ID_BTN_NEXT, NULL, NULL);
+                 500, 525, 120, 35, hwnd, (HMENU)ID_BTN_NEXT, NULL, NULL);
                  
     EnumChildWindows(hwnd, (WNDENUMPROC)SendMessage, (LPARAM)WM_SETFONT);
     SendMessage(hwnd, WM_SETFONT, (WPARAM)g_font_normal, MAKELPARAM(TRUE, 0));
@@ -416,6 +424,7 @@ static void buildConfigAlgoUI(HWND hwnd) {
     SendMessage(hChkAutoRelease, WM_SETFONT, (WPARAM)sysFont, 0);
     SendMessage(hChkSkipEmpty, WM_SETFONT, (WPARAM)sysFont, 0);
     SendMessage(hChkTerminateSyntax, WM_SETFONT, (WPARAM)sysFont, 0);
+    SendMessage(hChkMlfqUnblockL0, WM_SETFONT, (WPARAM)sysFont, 0);
     SendMessage(hBtnNext, WM_SETFONT, (WPARAM)sysFont, 0);
 }
 
@@ -1104,6 +1113,10 @@ static void onConfigAlgoNext(void) {
     g_cfg_auto_release_resources = (SendMessage(hChkAutoRelease, BM_GETCHECK, 0, 0) == BST_CHECKED) ? 1 : 0;
     g_cfg_skip_empty_lines = (SendMessage(hChkSkipEmpty, BM_GETCHECK, 0, 0) == BST_CHECKED) ? 1 : 0;
     g_cfg_terminate_on_syntax_error = (SendMessage(hChkTerminateSyntax, BM_GETCHECK, 0, 0) == BST_CHECKED) ? 1 : 0;
+    g_cfg_mlfq_unblock_to_l0 = (SendMessage(hChkMlfqUnblockL0, BM_GETCHECK, 0, 0) == BST_CHECKED) ? 1 : 0;
+    if (g_cfg_algo != SCHED_MLFQ) {
+        g_cfg_mlfq_unblock_to_l0 = 0;
+    }
     
     if (g_cfg_num_procs <= 0 || g_cfg_num_procs > 10) {
         MessageBox(g_hwnd, "Number of processes must be between 1 and 10.", "Error", MB_ICONERROR);
@@ -1158,6 +1171,7 @@ static void onConfigStartSim(void) {
     g_state->auto_release_resources = g_cfg_auto_release_resources;
     g_state->skip_empty_lines_on_load = g_cfg_skip_empty_lines;
     g_state->terminate_on_syntax_error = g_cfg_terminate_on_syntax_error;
+    g_state->mlfq_unblock_to_l0 = g_cfg_mlfq_unblock_to_l0;
     g_state->num_scheduled_processes = g_cfg_num_procs;
     g_state->scheduled_processes = malloc(sizeof(ArrivalConfig) * g_cfg_num_procs);
     
@@ -1241,6 +1255,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     if (HIWORD(wParam) == CBN_SELCHANGE) {
                         int algo_idx = SendMessage(hCboAlgo, CB_GETCURSEL, 0, 0);
                         EnableWindow(hTxtQuantum, (algo_idx == 0)); 
+                        EnableWindow(hChkMlfqUnblockL0, (algo_idx == 2));
                     }
                     break;
             }
@@ -1422,6 +1437,7 @@ void startGui(Emulator *emu, kernal_state *state) {
     g_cfg_auto_release_resources = 0;
     g_cfg_skip_empty_lines = 0;
     g_cfg_terminate_on_syntax_error = 0;
+    g_cfg_mlfq_unblock_to_l0 = 0;
     
     g_use_gui_logs = 1;
     setConsoleOutputPassthrough(0);

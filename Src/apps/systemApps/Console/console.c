@@ -53,6 +53,16 @@ int console(Emulator *emu, kernal_state *state) {
     printToConsole("  >> Terminate on syntax error: %s", state->terminate_on_syntax_error ? "enabled" : "disabled");
     printToConsole("");
 
+    if (state->current_algo == SCHED_MLFQ) {
+        printToConsole("  MLFQ option: unblocked process returns to L0 queue? [1=yes, 0=no]: ");
+        readFromConsole("%d", &state->mlfq_unblock_to_l0);
+        state->mlfq_unblock_to_l0 = (state->mlfq_unblock_to_l0 != 0) ? 1 : 0;
+    } else {
+        state->mlfq_unblock_to_l0 = 0;
+    }
+    printToConsole("  >> MLFQ unblock returns to L0: %s", state->mlfq_unblock_to_l0 ? "enabled" : "disabled");
+    printToConsole("");
+
     // Ask for the number of processes
     printToConsole("  Enter number of processes: ");
     int num_processes;

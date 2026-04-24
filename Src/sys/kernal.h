@@ -39,6 +39,7 @@ typedef struct kernal_state {
     int auto_release_resources;
     int skip_empty_lines_on_load;
     int terminate_on_syntax_error;
+    int mlfq_unblock_to_l0;
     
     flags *flags;
     

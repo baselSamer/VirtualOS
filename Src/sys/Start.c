@@ -41,6 +41,7 @@ static kernal_state* createKernalState(void) {
     state->auto_release_resources = 0;
     state->skip_empty_lines_on_load = 0;
     state->terminate_on_syntax_error = 0;
+    state->mlfq_unblock_to_l0 = 0;
 
     state->flags = NULL;
     createNewFlags(state);
