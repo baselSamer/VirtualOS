@@ -13,3 +13,6 @@
 [KERNEL_STARTUP] start() called
 [FLAGS] created tick=0
 [KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)
+[KERNEL_STARTUP] start() called
+[FLAGS] created tick=0
+[KERNEL_STARTUP] kernel state initialized (tick=0, gui=1)

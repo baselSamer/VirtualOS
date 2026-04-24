@@ -43,9 +43,9 @@ SyscallResultData syscall_print(
 
     char *val = get_variable(emu, pid, instr->arg1);
     if (val != NULL && strlen(val) > 0) {
-        printToConsole("%s", val);
+        printToMainConsole("%s", val);
     } else {
-        printToConsole("%s", instr->arg1);
+        printToMainConsole("%s", instr->arg1);
     }
     
     state->flags->blocked = BLOCKED_NONE;
@@ -255,7 +255,7 @@ SyscallResultData syscall_printFromTo(
     for (int i = from; i <= to && offset < 200; i++) {
         offset += snprintf(out_buf + offset, sizeof(out_buf) - offset, "%d ", i);
     }
-    printToConsole("%s", out_buf);
+    printToMainConsole("%s", out_buf);
     
     state->flags->blocked = BLOCKED_NONE;
 

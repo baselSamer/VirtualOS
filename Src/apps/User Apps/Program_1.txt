@@ -1,4 +1,3 @@
-zobry_manga
 semWait userInput
 assign x input
 assign y input

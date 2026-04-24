@@ -25,6 +25,15 @@ void printToConsole(const char* format, ...) {
     }
 }
 
+void printToMainConsole(const char* format, ...) {
+    char buffer[1024];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    printf("%s\n", buffer);
+}
+
 void printInputPrompt(const char* format, ...) {
     char buffer[1024];
     va_list args;

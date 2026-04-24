@@ -112,7 +112,6 @@ void execute(Emulator *emu, kernal_state *state) {
         printToConsole("  | CPU IDLE | No process running");
     }
 
-    state->current_tick_count += 1;
 }
 
 int start_exution(Emulator *emu, kernal_state *state) {
@@ -186,6 +185,8 @@ int start_exution(Emulator *emu, kernal_state *state) {
             printToConsole("  Press [Enter] to continue...");
             waitForEnter();
         }
+
+        state->current_tick_count += 1;
     }
 
     emulatorLog("[KERNEL] Execution loop finished at tick %d", state->current_tick_count);
