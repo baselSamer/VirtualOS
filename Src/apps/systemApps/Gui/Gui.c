@@ -1,8 +1,8 @@
 #include "Gui.h"
-#include "../Memory/Memory.h"
-#include "../../emu/Console/Console.h"
-#include "../../emu/Mem/Mem.h"
-#include "../../emu/Core/Logger.h"
+#include "../../../sys/Memory/Memory.h"
+#include "../../../emu/Console/Console.h"
+#include "../../../emu/Mem/Mem.h"
+#include "../../../emu/Core/Logger.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -27,13 +27,11 @@
 #define SWAP_CELL_H 54
 #define SWAP_GRID_COLS 8
 
-/* GUI States */
 #define GUI_STATE_WELCOME       -1
 #define GUI_STATE_CONFIG_ALGO   0
 #define GUI_STATE_CONFIG_PROCS  1
 #define GUI_STATE_SIMULATION    2
 
-/* Control IDs */
 #define ID_TAB_MEM      1001
 #define ID_TAB_SWAP     1002
 #define ID_TAB_SYS      1003
@@ -55,7 +53,6 @@
 
 #define ID_BTN_START    1000
 
-/* Win11 Dark Mode Palette */
 #define WIN11_BG        RGB(32, 32, 32)
 #define WIN11_SURFACE   RGB(40, 40, 40)
 #define WIN11_OVERLAY   RGB(45, 45, 48)
@@ -65,13 +62,11 @@
 #define WIN11_HOVER     RGB(50, 50, 50)
 #define WIN11_BORDER    RGB(64, 64, 64)
 
-/* Tab indices */
 #define TAB_MEMORY  0
 #define TAB_SWAP    1
 #define TAB_SYSTEM  2
 #define TAB_LOGS    3
 
-/* PID colors */
 static COLORREF pid_colors[] = {
     RGB(60, 60, 60),    /* 0: Empty (Surface) */
     RGB(0, 191, 255),   /* 1: Light Blue */
@@ -121,7 +116,6 @@ static HFONT g_font_bold = NULL;
 static HFONT g_font_title = NULL;
 static HFONT g_font_small = NULL;
 
-/* Config State */
 static int g_cfg_algo = 0;
 static int g_cfg_quantum = 2;
 static int g_cfg_num_procs = 0;
@@ -129,12 +123,11 @@ static int g_cfg_proc_idx = 0;
 static int g_cfg_auto_release_resources = 0;
 static int g_cfg_skip_empty_lines = 0;
 static int g_cfg_terminate_on_syntax_error = 0;
-static int g_cfg_mlfq_unblock_to_l0 = 0;
+static int g_cfg_mlfq_unblock_to_l0 = 1;
 
 static int *g_temp_arrivals = NULL;
 static char **g_temp_paths = NULL;
 
-/* Child HWNDs */
 static HWND hCboAlgo, hTxtQuantum, hTxtProcs, hBtnNext;
 static HWND hChkAutoRelease, hChkSkipEmpty, hChkTerminateSyntax, hChkMlfqUnblockL0;
 static HWND hTxtArrive, hBtnBrowse, hBtnPrevPro, hBtnNextPro;
@@ -251,6 +244,11 @@ static void DestroyAllChildWindows(HWND hwnd) {
     }
 }
 
+static BOOL CALLBACK SetChildFont(HWND hwndChild, LPARAM lParam) {
+    SendMessage(hwndChild, WM_SETFONT, (WPARAM)lParam, TRUE);
+    return TRUE;
+}
+
 static void BrowseFile(void) {
     OPENFILENAME ofn;
     char szFile[260] = {0};
@@ -327,8 +325,7 @@ static void buildWelcomeUI(HWND hwnd) {
     hBtnStart = CreateWindow("BUTTON", "Start", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
                  WIN_W/2 - 60, WIN_H/2 + 50, 120, 40, hwnd, (HMENU)ID_BTN_START, NULL, NULL);
                  
-    HFONT sysFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessage(hBtnStart, WM_SETFONT, (WPARAM)sysFont, 0);
+    SendMessage(hBtnStart, WM_SETFONT, (WPARAM)g_font_normal, 0);
 }
 
 static void drawWelcomeTab(HDC hdc, RECT *client) {
@@ -413,19 +410,7 @@ static void buildConfigAlgoUI(HWND hwnd) {
     hBtnNext = CreateWindow("BUTTON", "Next ->", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
                  500, 525, 120, 35, hwnd, (HMENU)ID_BTN_NEXT, NULL, NULL);
                  
-    EnumChildWindows(hwnd, (WNDENUMPROC)SendMessage, (LPARAM)WM_SETFONT);
-    SendMessage(hwnd, WM_SETFONT, (WPARAM)g_font_normal, MAKELPARAM(TRUE, 0));
-    
-    // Default system font for child controls
-    HFONT sysFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessage(hCboAlgo, WM_SETFONT, (WPARAM)sysFont, 0);
-    SendMessage(hTxtQuantum, WM_SETFONT, (WPARAM)sysFont, 0);
-    SendMessage(hTxtProcs, WM_SETFONT, (WPARAM)sysFont, 0);
-    SendMessage(hChkAutoRelease, WM_SETFONT, (WPARAM)sysFont, 0);
-    SendMessage(hChkSkipEmpty, WM_SETFONT, (WPARAM)sysFont, 0);
-    SendMessage(hChkTerminateSyntax, WM_SETFONT, (WPARAM)sysFont, 0);
-    SendMessage(hChkMlfqUnblockL0, WM_SETFONT, (WPARAM)sysFont, 0);
-    SendMessage(hBtnNext, WM_SETFONT, (WPARAM)sysFont, 0);
+    EnumChildWindows(hwnd, SetChildFont, (LPARAM)g_font_normal);
 }
 
 static void drawConfigAlgoTab(HDC hdc, RECT *client) {
@@ -462,11 +447,7 @@ static void buildConfigProcsUI(HWND hwnd) {
     hBtnNextPro = CreateWindow("BUTTON", nextTxt, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
                  420, 420, 150, 35, hwnd, (HMENU)ID_BTN_NEXTPRO, NULL, NULL);
 
-    HFONT sysFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessage(hTxtArrive, WM_SETFONT, (WPARAM)sysFont, 0);
-    SendMessage(hBtnBrowse, WM_SETFONT, (WPARAM)sysFont, 0);
-    SendMessage(hBtnPrevPro, WM_SETFONT, (WPARAM)sysFont, 0);
-    SendMessage(hBtnNextPro, WM_SETFONT, (WPARAM)sysFont, 0);
+    EnumChildWindows(hwnd, SetChildFont, (LPARAM)g_font_normal);
 }
 
 static void drawConfigProcsTab(HDC hdc, RECT *client) {
@@ -482,7 +463,6 @@ static void drawConfigProcsTab(HDC hdc, RECT *client) {
     SetTextColor(hdc, WIN11_TEXT_SEC);
     TextOut(hdc, 300, 160, "Step 2: Configure incoming processes", 36);
     
-    // Draw Current Path
     SetTextColor(hdc, WIN11_TEXT);
     TextOut(hdc, 300, 270, "Selected File:", 14);
     
@@ -500,12 +480,10 @@ static void drawConfigProcsTab(HDC hdc, RECT *client) {
 static void buildSimulationUI(HWND hwnd) {
     DestroyAllChildWindows(hwnd);
     
-    // Bottom right corner for Step button
     hBtnStep = CreateWindow("BUTTON", "Step >>", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
                  WIN_W - 130, WIN_H - 150, 100, 40, hwnd, (HMENU)ID_BTN_STEP, NULL, NULL);
 
-    HFONT sysFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessage(hBtnStep, WM_SETFONT, (WPARAM)sysFont, 0);
+    SendMessage(hBtnStep, WM_SETFONT, (WPARAM)g_font_normal, 0);
 }
 
 /* ========== TAB: MEMORY (SIMULATION) ========== */
@@ -518,7 +496,6 @@ static void drawMemoryTab(HDC hdc, RECT *client) {
     SetTextColor(hdc, WIN11_TEXT);
     TextOut(hdc, GRID_X, GRID_Y - 50, "Physical Memory", 15);
     
-    /* Calculate usage */
     int used_slots = 0;
     for (int i=0; i<40; i++) if (slot_pids[i] != 0) used_slots++;
     
@@ -545,13 +522,11 @@ static void drawMemoryTab(HDC hdc, RECT *client) {
         
         SetBkMode(hdc, TRANSPARENT);
         
-        /* Slot index */
         SelectObject(hdc, g_font_small);
         SetTextColor(hdc, RGB(90, 90, 90));
         sprintf(buf, "%d", i);
         TextOut(hdc, x + 6, y + 4, buf, (int)strlen(buf));
         
-        /* Center text */
         SelectObject(hdc, g_font_normal);
         if (word != NULL) {
             SetTextColor(hdc, WIN11_TEXT);
@@ -567,7 +542,6 @@ static void drawMemoryTab(HDC hdc, RECT *client) {
         }
     }
     
-    /* Legend */
     int ly = GRID_Y + GRID_ROWS * CELL_H + 15;
     SelectObject(hdc, g_font_bold);
     SetTextColor(hdc, WIN11_TEXT);
@@ -576,7 +550,6 @@ static void drawMemoryTab(HDC hdc, RECT *client) {
     SelectObject(hdc, g_font_normal);
     int lx = GRID_X + 70;
     
-    /* Empty */
     DrawRoundRect(hdc, lx, ly, 20, 16, 4, pid_colors[0], WIN11_BORDER, 1);
     TextOut(hdc, lx + 25, ly, "Empty", 5);
     lx += 90;
@@ -793,7 +766,6 @@ static void drawSystemTab(HDC hdc, RECT *client) {
     drawQueue(hdc, x, y, "Blocked: File", &g_state->mutexes->file_queue, slot_pids);
     y += 50;
     
-    /* HRRN Ratios */
     if (g_state->current_algo == SCHED_HRRN && g_state->ready_queue.count > 0) {
         SelectObject(hdc, g_font_bold);
         SetTextColor(hdc, WIN11_TEXT);
@@ -843,7 +815,6 @@ static void drawSystemTab(HDC hdc, RECT *client) {
 }
 
 /* ========== TAB: SYSTEM LOGS (SIMULATION) ========== */
-/* Renders the system execution logs into the designated GUI tab, handling scroll state and visibility bounds. */
 static void drawLogsTab(HDC hdc, RECT *client) {
     char buf[128];
     int x = GRID_X;
@@ -896,7 +867,6 @@ static void drawLogsTab(HDC hdc, RECT *client) {
 }
 
 /* ========== STATUS BAR ========== */
-/* Renders the global status bar at the bottom of the window, detailing memory bounds or process limits when hovered. */
 static void drawStatusBar(HDC hdc, RECT *client) {
     int y = client->bottom - STATUS_H;
     
@@ -989,7 +959,6 @@ static void drawStatusBar(HDC hdc, RECT *client) {
 }
 
 /* ========== WM_PAINT MAIN ========== */
-/* Orchestrates the entire UI paint cycle, double buffering drawing commands before blasting the rect to the screen. */
 static void paintWindow(HWND hwnd) {
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hwnd, &ps);
@@ -999,11 +968,9 @@ static void paintWindow(HWND hwnd) {
     HBITMAP memBmp = CreateCompatibleBitmap(hdc, client.right, client.bottom);
     HBITMAP oldBmp = SelectObject(memDC, memBmp);
     
-    /* Background Surface */
     HBRUSH bgBrush = CreateSolidBrush(WIN11_SURFACE);
     FillRect(memDC, &client, bgBrush);
     DeleteObject(bgBrush);
-    /* Render Core Content based on state */
     switch (g_gui_mode) {
         case GUI_STATE_WELCOME:
             drawWelcomeTab(memDC, &client);
@@ -1016,7 +983,6 @@ static void paintWindow(HWND hwnd) {
             break;
         case GUI_STATE_SIMULATION:
             if (g_emu != NULL && g_state != NULL) {
-                /* Sidebar Drawing */
                 HBRUSH sbBrush = CreateSolidBrush(WIN11_OVERLAY);
                 RECT sbRect = { 0, 0, 200, client.bottom };
                 FillRect(memDC, &sbRect, sbBrush);
@@ -1036,7 +1002,6 @@ static void paintWindow(HWND hwnd) {
                         RECT aRect = { 0, ty, 200, ty + 40 };
                         FillRect(memDC, &aRect, actBrush);
                         DeleteObject(actBrush);
-                        /* Accent line */
                         HBRUSH accent = CreateSolidBrush(WIN11_ACCENT);
                         RECT lRect = { 0, ty, 4, ty + 40 };
                         FillRect(memDC, &lRect, accent);
@@ -1048,7 +1013,6 @@ static void paintWindow(HWND hwnd) {
                     TextOut(memDC, 20, ty + 10, tab_names[i], strlen(tab_names[i]));
                 }
                 
-                /* Clock / Tick Count */
                 SelectObject(memDC, g_font_bold);
                 SetTextColor(memDC, WIN11_TEXT);
                 char tickBuf[64];
@@ -1102,7 +1066,6 @@ static void paintWindow(HWND hwnd) {
 }
 
 /* ========== CONTROLLER LOGIC ========== */
-/* Validates configuration wizard inputs for algorithms and transitions the window to the subsequent process load step. */
 static void onConfigAlgoNext(void) {
     int algo_idx = SendMessage(hCboAlgo, CB_GETCURSEL, 0, 0);
     g_cfg_algo = (algo_idx == 0) ? SCHED_RR : (algo_idx == 1) ? SCHED_HRRN : SCHED_MLFQ;
@@ -1140,29 +1103,22 @@ static void onConfigAlgoNext(void) {
     InvalidateRect(g_hwnd, NULL, TRUE);
 }
 
-/* Preserves process configuration inputs and redraws the UI for editing the target process index in the wizard. */
 static void onConfigProcsSwitch(int processIndex) {
-    // Save current proc data
     char buf[256];
     GetWindowText(hTxtArrive, buf, 256);
     g_temp_arrivals[g_cfg_proc_idx] = atoi(buf);
     
-    // Switch target
     g_cfg_proc_idx = processIndex;
     
-    // Rebuild UI for target
     buildConfigProcsUI(g_hwnd);
     InvalidateRect(g_hwnd, NULL, TRUE);
 }
 
-/* Finalizes configuration inputs, propagates state to the kernel, and fires the unblocking event to commence simulation. */
 static void onConfigStartSim(void) {
-    // Save last proc data
     char buf[256];
     GetWindowText(hTxtArrive, buf, 256);
     g_temp_arrivals[g_cfg_proc_idx] = atoi(buf);
     
-    // Validate
     for (int i = 0; i < g_cfg_num_procs; i++) {
         if (g_temp_paths[i] == NULL || strlen(g_temp_paths[i]) == 0) {
             sprintf(buf, "Missing file path for Process %d!", i+1);
@@ -1171,7 +1127,6 @@ static void onConfigStartSim(void) {
         }
     }
     
-    // Write directly to Kernel State
     g_state->current_algo = g_cfg_algo;
     g_state->time_quantum = g_cfg_quantum;
     g_state->auto_release_resources = g_cfg_auto_release_resources;
@@ -1191,17 +1146,14 @@ static void onConfigStartSim(void) {
     g_temp_arrivals = NULL;
     g_temp_paths = NULL; 
     
-    // Launch simulation interface
     g_gui_mode = GUI_STATE_SIMULATION;
     buildSimulationUI(g_hwnd);
     InvalidateRect(g_hwnd, NULL, TRUE);
     
-    // Unblock the kernel execution thread!
     SetEvent(g_config_done_event);
 }
 
 /* ========== WINDOW PROCEDURE ========== */
-/* Handles asynchronous Window messages routing paint updates, input events, and destruction lifecycle hooks. */
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_CREATE:
@@ -1232,14 +1184,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         
         case WM_COMMAND: {
             switch (LOWORD(wParam)) {
-                // WELCOME BUTTON
                 case ID_BTN_START: 
                     g_gui_mode = GUI_STATE_CONFIG_ALGO; 
                     buildConfigAlgoUI(hwnd); 
                     InvalidateRect(hwnd, NULL, TRUE); 
                     break;
                     
-                // CONFIG BUTTONS
                 case ID_BTN_NEXT:   onConfigAlgoNext(); break;
                 case ID_BTN_BROWSE: BrowseFile(); break;
                 case ID_BTN_PREVPRO: 
@@ -1251,13 +1201,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     else onConfigStartSim();
                     break;
                     
-                // SIMULATION BUTTONS
                 case ID_TAB_MEM:  g_active_tab = TAB_MEMORY; InvalidateRect(hwnd, NULL, FALSE); break;
                 case ID_TAB_SWAP: g_active_tab = TAB_SWAP; InvalidateRect(hwnd, NULL, FALSE); break;
                 case ID_TAB_SYS:  g_active_tab = TAB_SYSTEM; InvalidateRect(hwnd, NULL, FALSE); break;
                 case ID_BTN_STEP: SetEvent(g_step_event); break;
                 
-                // EVENTS
                 case ID_CBO_ALGO:
                     if (HIWORD(wParam) == CBN_SELCHANGE) {
                         int algo_idx = SendMessage(hCboAlgo, CB_GETCURSEL, 0, 0);
@@ -1276,7 +1224,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 int col = (mx - GRID_X) / CELL_W;
                 int row = (my - GRID_Y) / CELL_H;
                 int new_hover = -1;
-                /* Offset mx by 200 for the taskbar sidebar! */
                 if (col >= 0 && col < GRID_COLS && row >= 0 && row < GRID_ROWS &&
                     mx >= GRID_X && my >= GRID_Y) {
                     new_hover = row * GRID_COLS + col;
@@ -1379,7 +1326,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 /* ========== GUI THREAD ========== */
-/* Initializer entry point for the GUI thread that constructs the Win32 context, font families, and blocking message loop. */
 static DWORD WINAPI guiThreadFunc(LPVOID param) {
     (void)param;
     
@@ -1394,7 +1340,6 @@ static DWORD WINAPI guiThreadFunc(LPVOID param) {
     wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     RegisterClassEx(&wc);
     
-    // Use macOS-style modern proportional fonts instead of fixed width Consolas
     g_font_normal = CreateFont(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, "Segoe UI");
@@ -1433,7 +1378,6 @@ static DWORD WINAPI guiThreadFunc(LPVOID param) {
 
 /* ========== PUBLIC API ========== */
 
-/* Initializes state variables, hooks into the emulator event stream, and launches the detached GUI presentation thread. */
 void startGui(Emulator *emu, kernal_state *state) {
     g_emu = emu;
     g_state = state;
@@ -1446,7 +1390,7 @@ void startGui(Emulator *emu, kernal_state *state) {
     g_cfg_auto_release_resources = 0;
     g_cfg_skip_empty_lines = 0;
     g_cfg_terminate_on_syntax_error = 0;
-    g_cfg_mlfq_unblock_to_l0 = 0;
+    g_cfg_mlfq_unblock_to_l0 = 1;
     
     g_use_gui_logs = 1;
     setConsoleOutputPassthrough(0);
@@ -1458,21 +1402,18 @@ void startGui(Emulator *emu, kernal_state *state) {
     g_swap_pid_chip_count = 0;
     
     g_step_event = CreateEvent(NULL, FALSE, FALSE, NULL);
-    g_config_done_event = CreateEvent(NULL, TRUE, FALSE, NULL); // Manual reset event
+    g_config_done_event = CreateEvent(NULL, TRUE, FALSE, NULL);
     
     g_gui_thread = CreateThread(NULL, 0, guiThreadFunc, NULL, 0, NULL);
     Sleep(300);
 }
 
-/* Dispatches an invalidation request to asynchronously invoke the windowing system UI paint refresh. */
 void updateGui(void) {
     if (g_hwnd != NULL) {
-        InvalidateRect(g_hwnd, NULL, FALSE);
-        UpdateWindow(g_hwnd);
+        RedrawWindow(g_hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
     }
 }
 
-/* Halts the main dispatcher thread execution until a step confirmation button press is captured by the interface. */
 void waitForGuiStep(void) {
     if (g_step_event != NULL) {
         updateGui();
@@ -1480,15 +1421,12 @@ void waitForGuiStep(void) {
     }
 }
 
-/* Pauses execution while the user interfaces with the configuration wizard to yield complete scheduled process inputs. */
 void waitForGuiConfig(void) {
     if (g_config_done_event != NULL) {
-        // Main thread blocking until GUI config is completely done.
         WaitForSingleObject(g_config_done_event, INFINITE);
     }
 }
 
-/* Orders the teardown and destruction of the Win32 window classes, closes events, and releases thread resources. */
 void stopGui(void) {
     g_running = 0;
     if (g_hwnd != NULL) {

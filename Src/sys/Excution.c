@@ -3,7 +3,7 @@
 #include "../emu/Mem/Mem.h"
 #include "../emu/Console/Console.h"
 #include "../emu/Core/Logger.h"
-#include "Gui/Gui.h"
+#include "../apps/systemApps/Gui/Gui.h"
 #include "../apps/systemApps/Parser_Interpeter/Parser.h"
 #include <stdlib.h>
 #include <stdio.h>

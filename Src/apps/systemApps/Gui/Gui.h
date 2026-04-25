@@ -1,7 +1,7 @@
 #ifndef PROJECT_ETHOS_GUI_H
 #define PROJECT_ETHOS_GUI_H
 
-#include "../kernal.h"
+#include "../../../sys/kernal.h"
 
 /* Spawns a background thread to launch and manage the graphical user interface. */
 void startGui(Emulator *emu, kernal_state *state);

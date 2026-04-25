@@ -4,7 +4,7 @@
 #include "../emu/Core/Emulator_core.h"
 #include "../emu/Mem/Mem_core.h"
 #include "kernal.h"
-#include "Gui/Gui.h"
+#include "../apps/systemApps/Gui/Gui.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
