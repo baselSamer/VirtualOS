@@ -7,11 +7,13 @@
 #include "../../emu/Mem/Mem.h"
 #include "../../emu/Console/Console.h"
 
+/* Prints a summary header about the size and format of an on-disk swap file to the console. */
 static void printSwapFormatSummary(const char *swap_filename, int pid, int total_slots) {
     printToConsole("  | DISK    | PID %d stored in %s", pid, swap_filename);
     printToConsole("  | DISK    | Format: [int total_slots=%d] + [%d MemoryWord entries]", total_slots, total_slots);
 }
 
+/* Evaluates whether a given string is NULL or made entirely of whitespace. */
 static int isEmptyLine(const char *line) {
     if (line == NULL) {
         return 1;
@@ -27,10 +29,10 @@ static int isEmptyLine(const char *line) {
     return 1;
 }
 
+/* Loads a process from a file into main memory, creating its PCB, variables, and instructions. */
 int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid, kernal_state *state) {
     void *buffer = NULL;
     
-    // 1. Ask the Hardware (Emulator) to read the disk
     size_t file_size = read_raw_data(filepath, &buffer);
     if (file_size == 0 || buffer == NULL) {
         printToConsole("Error: Could not find file %s", filepath);
@@ -51,7 +53,6 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid, ker
         skip_empty_lines = 1;
     }
 
-    // 2. Count the lines according to loading mode
     int line_count = 0;
     if (skip_empty_lines) {
         char *scan_text = malloc(file_size + 1);
@@ -89,11 +90,9 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid, ker
         return -1;
     }
 
-    // 3. Find Space 
     int start_index = find_empty_space(emu, total_slots_needed);
     
     if (start_index == -1) {
-        // MEMORY IS FULL! Write directly to swap file.
         printToConsole("Memory full! Process %d goes straight to swap disk...", new_pid);
 
         char swap_filename[64];
@@ -148,8 +147,6 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid, ker
         fclose(swap_file);
         printSwapFormatSummary(swap_filename, new_pid, total_slots_needed);
     } else {
-        // Space available! Load directly into RAM
-        // 4. Allocate PCB (Slot 0)
         struct MemoryWord *pcb_word = malloc(sizeof(struct MemoryWord));
         pcb_word->type = MEM_TYPE_PCB;
         pcb_word->content.pcb_data.ProcessID = new_pid;
@@ -163,7 +160,6 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid, ker
         
         writeMem(emu, start_index, pcb_word);
         
-        // 5. Allocate 3 blank Variables
         for (int i = 1; i <= 3; i++) {
             struct MemoryWord *var_word = malloc(sizeof(struct MemoryWord));
             var_word->type = MEM_TYPE_VARIABLE;
@@ -172,7 +168,6 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid, ker
             writeMem(emu, start_index + i, var_word);
         }
         
-        // 6. Split the file text by Newlines and save them as Instructions
         int current_slot = start_index + 4;
         char *line = strtok(file_text, "\n");
         
@@ -197,48 +192,47 @@ int load_process_to_memory(Emulator *emu, const char* filepath, int new_pid, ker
     return 0;
 }
 
+/* Scans main memory for consecutive empty slots, returning the start index or -1 if none found. */
 // Returns the starting index if it finds space, or -1 if memory is full
 int find_empty_space(Emulator *emu, int required_slots) {
     int consecutive_empty = 0;
     int start_index = -1;
 
-    for (int i = 0; i < 40; i++) { // 40 is our hardcoded physical limit
+    for (int i = 0; i < 40; i++) {
         if (readMem(emu, i) == NULL) {
             if (consecutive_empty == 0) {
-                start_index = i; // Mark the start of a potential block
+                start_index = i;
             }
             consecutive_empty++;
 
             if (consecutive_empty == required_slots) {
-                return start_index; // We found enough space!
+                return start_index;
             }
         } else {
-            // Hit an occupied slot, reset the counter
+           
             consecutive_empty = 0;
             start_index = -1;
         }
     }
     
-    return -1; // Not enough contiguous space found
+    return -1;
 }
 
 
 // Returns 0 on success, -1 on failure
-// Returns 0 on success, -1 on failure
+/* Evicts a process (preferably blocked) from main memory to disk to free up space. */
 int swap_out(Emulator *emu) {
     int victim_start = -1;
     struct MemoryWord *victim_pcb = NULL;
     
-    // Get the currently running process so we NEVER evict it
     PCB *active_process = getActivePCB(emu);
     int active_pid = (active_process != NULL) ? active_process->ProcessID : -1;
 
-    // PASS 1: Hunt for a BLOCKED process first (They are the best victims!)
     for (int i = 0; i < 40; i++) {
         struct MemoryWord *word = (struct MemoryWord *)readMem(emu, i);
         if (word != NULL && word->type == MEM_TYPE_PCB) {
             
-            if (word->content.pcb_data.ProcessID == active_pid) continue; // PROTECT THE CPU!
+            if (word->content.pcb_data.ProcessID == active_pid) continue;
             
             if (word->content.pcb_data.state == BLOCKED) {
                 victim_start = i;
@@ -248,13 +242,12 @@ int swap_out(Emulator *emu) {
         }
     }
 
-    // PASS 2: If no blocked process was found, settle for ANY process that isn't running
     if (victim_start == -1) {
         for (int i = 0; i < 40; i++) {
             struct MemoryWord *word = (struct MemoryWord *)readMem(emu, i);
             if (word != NULL && word->type == MEM_TYPE_PCB) {
                 
-                if (word->content.pcb_data.ProcessID == active_pid) continue; // PROTECT THE CPU!
+                if (word->content.pcb_data.ProcessID == active_pid) continue;
                 
                 victim_start = i;
                 victim_pcb = word;
@@ -268,11 +261,9 @@ int swap_out(Emulator *emu) {
         return -1; 
     }
 
-    // Get the victim's details from its PCB
     int victim_end = victim_pcb->content.pcb_data.bounds[3];
     int victim_pid = victim_pcb->content.pcb_data.ProcessID;
 
-    // 2. Open a temporary swap file (using standard C file I/O for OS-level tasks)
     char swap_filename[64];
     sprintf(swap_filename, "swap_pid_%d.bin", victim_pid);
     FILE *swap_file = fopen(swap_filename, "wb");
@@ -286,7 +277,6 @@ int swap_out(Emulator *emu) {
     int total_slots = victim_end - victim_start + 1;
     fwrite(&total_slots, sizeof(int), 1, swap_file);
 
-    // 3. Write all the structs to the file and free the RAM
     for (int i = victim_start; i <= victim_end; i++) {
         struct MemoryWord *word = (struct MemoryWord *)readMem(emu, i);
         
@@ -305,6 +295,7 @@ int swap_out(Emulator *emu) {
     return 0;
 }
 
+/* Locates a process variable by name and updates its value in memory. */
 /* Set variable in memory */
 int set_variable(Emulator *emu, int pid, const char *name, const char *value) {
     PCB *pcb = findPCB_FromID(emu, pid);
@@ -329,6 +320,7 @@ int set_variable(Emulator *emu, int pid, const char *name, const char *value) {
     return 0;
 }
 
+/* Locates a process variable by name and retrieves its current value. */
 /* Get variable from memory */
 char* get_variable(Emulator *emu, int pid, const char *name) {
     PCB *pcb = findPCB_FromID(emu, pid);
@@ -347,23 +339,22 @@ char* get_variable(Emulator *emu, int pid, const char *name) {
     return NULL;
 }
 
+/* Retrieves a previously evicted process from disk and restores it to main memory. */
 // Returns 0 on success, -1 on failure
 int swap_in(Emulator *emu, int target_pid) {
     char swap_filename[64];
     sprintf(swap_filename, "swap_pid_%d.bin", target_pid);
     
-    // 1. Open the swap file for reading
+    //open the swap file for reading
     FILE *swap_file = fopen(swap_filename, "rb");
     if (swap_file == NULL) {
         printToConsole("OS Error: Swap file for PID %d not found.", target_pid);
         return -1;
     }
 
-    // 2. Read the total slots required (We saved this first in swap_out!)
     int total_slots;
     fread(&total_slots, sizeof(int), 1, swap_file);
 
-    // 3. Find Space in RAM (Evict someone else if necessary)
     int new_start_index = find_empty_space(emu, total_slots);
     
     while (new_start_index == -1) {
@@ -371,13 +362,12 @@ int swap_in(Emulator *emu, int target_pid) {
         if (swap_out(emu) == -1) {
             printToConsole("Fatal Error: Swap failed during swap_in.");
             fclose(swap_file);
-            return -1; // Failed to clear space
+            return -1; 
         }
         
         new_start_index = find_empty_space(emu, total_slots);
     }
 
-    // 4. Read the structs into memory and handle the Relocation Math
     int offset = 0; // The difference between the old address and new address
     
     for (int i = 0; i < total_slots; i++) {
@@ -386,25 +376,20 @@ int swap_in(Emulator *emu, int target_pid) {
         // Read the exact struct back from the file
         fread(word, sizeof(struct MemoryWord), 1, swap_file);
         
-        // If this is the PCB (which is always the first word), update its pointers!
         if (word->type == MEM_TYPE_PCB) {
             int old_start = word->content.pcb_data.bounds[0] - 1; // PCB sits one before var_start
             offset = new_start_index - old_start; // Calculate the shift distance
             
-            // Shift the bounds to the new parking spot
             word->content.pcb_data.bounds[0] += offset;
             word->content.pcb_data.bounds[1] += offset;
             word->content.pcb_data.bounds[2] += offset;
             word->content.pcb_data.bounds[3] += offset;
             
-            // Shift the Program Counter so Team 2 reads the correct instruction
             word->content.pcb_data.pc += offset;
             
-            // Make sure the state is ready to be picked up by your Scheduler
             word->content.pcb_data.state = READY; 
         }
         
-        // Give the word to the hardware at its new location
         writeMem(emu, new_start_index + i, word);
     }
 
@@ -412,7 +397,6 @@ int swap_in(Emulator *emu, int target_pid) {
     printToConsole("  | SWAP    | Swapped IN PID %d at RAM index %d", target_pid, new_start_index);
     printSwapFormatSummary(swap_filename, target_pid, total_slots);
     
-    // 5. Cleanup: Delete the swap file from the hard drive since it's back in RAM
     if (remove(swap_filename) == 0) {
         printToConsole("  | SWAP    | Removed swap file %s after restore", swap_filename);
     } else {
@@ -423,6 +407,7 @@ int swap_in(Emulator *emu, int target_pid) {
 }
 
 
+/* Searches the emulator's memory space and returns a pointer to the PCB struct with the specified Process ID. */
 PCB* findPCB_FromID(Emulator *emu,int id){
     struct MemoryWord *word;
     for(int i=0;i<40;i++){

@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
-/* Parse script from file */
+/* Reads the file at filepath, parses its instructions, and returns a dynamically allocated ParsedScript structure. */
 ParsedScript* parseScriptFromFile(const char *filepath) {
     ParsedScript *result = malloc(sizeof(ParsedScript));
     if (result == NULL) {
@@ -71,7 +71,7 @@ ParsedScript* parseScriptFromFile(const char *filepath) {
     return result;
 }
 
-/* Parse script from memory buffer */
+/* Reads a script directly from a memory buffer, parsing its instructions into a dynamically allocated ParsedScript structure. */
 ParsedScript* parseScriptFromBuffer(const char *buffer, size_t buffer_size) {
     ParsedScript *result = malloc(sizeof(ParsedScript));
     if (result == NULL) {
@@ -139,7 +139,7 @@ ParsedScript* parseScriptFromBuffer(const char *buffer, size_t buffer_size) {
     return result;
 }
 
-/* Free parsed script */
+/* Frees a ParsedScript structure, including all instructions and arguments contained within it. */
 void freeParsedScript(ParsedScript *script) {
     if (script == NULL) {
         return;
@@ -155,7 +155,7 @@ void freeParsedScript(ParsedScript *script) {
     free(script);
 }
 
-/* Load script into process context */
+/* Parses a file and loads its instructions securely into a Process Control Block (PCB). */
 int loadScriptToProcess(Emulator *emu, PCB *pcb, const char *filepath) {
     if (emu == NULL || pcb == NULL || filepath == NULL) {
         return -1;

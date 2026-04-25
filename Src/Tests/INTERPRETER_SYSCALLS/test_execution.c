@@ -23,18 +23,21 @@ int total_tests = 0;
 int passed_tests = 0;
 int failed_tests = 0;
 
+/* Prints a formatted header for an individual test case. */
 void print_test_header(const char *title) {
     printf("\n┌─────────────────────────────────────────────────────────┐\n");
     printf("│ %s\n", title);
     printf("└─────────────────────────────────────────────────────────┘\n");
 }
 
+/* Logs a passing test and increments counters. */
 void test_pass(const char *test_name) {
     printf("  ✓ [PASS] %s\n", test_name);
     passed_tests++;
     total_tests++;
 }
 
+/* Logs a failing test with a reason and increments counters. */
 void test_fail(const char *test_name, const char *reason) {
     printf("  ✗ [FAIL] %s\n         Reason: %s\n", test_name, reason);
     failed_tests++;
@@ -42,6 +45,7 @@ void test_fail(const char *test_name, const char *reason) {
 }
 
 /* Setup test PCB */
+/* Allocates and initializes a test PCB with predefined states. */
 PCB* create_test_pcb(int pid) {
     PCB *pcb = malloc(sizeof(PCB));
     pcb->ProcessID = pid;
@@ -55,6 +59,7 @@ PCB* create_test_pcb(int pid) {
 }
 
 /* Setup test state */
+/* Allocates and initializes a test kernel state. */
 kernal_state* create_test_state() {
     kernal_state *state = malloc(sizeof(kernal_state));
     state->current_tick_count = 0;
@@ -67,6 +72,7 @@ kernal_state* create_test_state() {
     return state;
 }
 
+/* Safely deallocates test harness structures. */
 void cleanup_test(PCB *pcb, kernal_state *state, Emulator *emu) {
     if (pcb) free(pcb);
     if (state->flags) free(state->flags);
@@ -78,6 +84,7 @@ void cleanup_test(PCB *pcb, kernal_state *state, Emulator *emu) {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 1: PC INITIALIZATION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Verifies that the Program Counter initializes to 0. */
 void test_pc_initialization() {
     print_test_header("TEST 1: PC Initialization");
     
@@ -95,6 +102,7 @@ void test_pc_initialization() {
 /* ═══════════════════════════════════════════════════════════════��═ */
 /* TEST 2: PC ADVANCEMENT ON SUCCESS */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Verifies the Program Counter advances upon successful execution. */
 void test_pc_advancement() {
     print_test_header("TEST 2: PC Advancement on Successful Syscall");
     
@@ -125,6 +133,7 @@ void test_pc_advancement() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 3: PC NOT ADVANCED ON BLOCKED */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Ensures the Program Counter stalls during blocked operations. */
 void test_pc_not_advanced_blocked() {
     print_test_header("TEST 3: PC NOT Advanced on Blocked Syscall");
     
@@ -157,6 +166,7 @@ void test_pc_not_advanced_blocked() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 4: PC BOUNDS CHECKING */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Confirms execution halts when surpassing instruction boundaries. */
 void test_pc_bounds_check() {
     print_test_header("TEST 4: PC Bounds Checking");
     
@@ -185,6 +195,7 @@ void test_pc_bounds_check() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 5: FLAG CREATION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tests state reset capability for kernel flags. */
 void test_flag_creation() {
     print_test_header("TEST 5: Fresh Flag Creation (createNewFlags)");
     
@@ -215,6 +226,7 @@ void test_flag_creation() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 6: TICK COUNTER INCREMENT */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tracks monotonic increment logic of tick simulation. */
 void test_tick_counter() {
     print_test_header("TEST 6: Tick Counter Increment");
     
@@ -245,6 +257,7 @@ void test_tick_counter() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 7: SEQUENTIAL INSTRUCTION EXECUTION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Ensures basic straight-line execution functions correctly. */
 void test_sequential_execution() {
     print_test_header("TEST 7: Sequential Instruction Execution");
     
@@ -287,6 +300,7 @@ void test_sequential_execution() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 8: PROCESS STATE TRANSITIONS */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Transitions a process sequentially to verify state flags. */
 void test_process_state_transitions() {
     print_test_header("TEST 8: Process State Transitions");
     
@@ -318,6 +332,7 @@ void test_process_state_transitions() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* MAIN TEST RUNNER */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Entry point driving the execution flow tests. */
 int main() {
     printf("\n");
     printf("╔═══════════════════════════════════════════════════════╗\n");

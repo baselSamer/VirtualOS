@@ -26,6 +26,7 @@ static void printBootLogo(void) {
     printToConsole("");
 }
 
+/* Empties all slots in the emulator's memory array and clears the active PCB pointer. */
 static void resetEmulatorMemory(Emulator *emu) {
     for (int i = 0; i < 40; i++) {
         freeMemLoc(emu, i);
@@ -33,6 +34,7 @@ static void resetEmulatorMemory(Emulator *emu) {
     setActivePCB(emu, NULL);
 }
 
+/* Allocates and initializes a new kernel state structure with default empty values and queues. */
 static kernal_state* createKernalState(void) {
     kernal_state *state = malloc(sizeof(kernal_state));
 
@@ -73,6 +75,7 @@ static kernal_state* createKernalState(void) {
     return state;
 }
 
+/* Deep frees a kernel state structure, including all allocated scheduled process configurations and sub-components. */
 static void freeKernalState(kernal_state *state) {
     if (state->scheduled_processes != NULL) {
         for (int i = 0; i < state->num_scheduled_processes; i++) {
@@ -87,6 +90,7 @@ static void freeKernalState(kernal_state *state) {
     free(state);
 }
 
+/* Main entry point logic configuring execution mode, initiating GUI or terminal output, and running the simulator. */
 int start(Emulator *emu) {
     emulatorLog("[KERNEL_STARTUP] start() called");
     printBootLogo();

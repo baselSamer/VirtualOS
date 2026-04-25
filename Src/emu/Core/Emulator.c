@@ -10,6 +10,7 @@ struct Emulator
     void** mem;
 };
 
+/* Allocates and initializes a new Emulator structure and its simulated memory. */
 Emulator* createEmulator()
 {
     Emulator *emu = (Emulator*)malloc(sizeof(Emulator));
@@ -19,6 +20,7 @@ Emulator* createEmulator()
     return emu;
 }
 
+/* Frees memory allocated for an Emulator and its internal resources. */
 void destroyEmulator(Emulator *emu)
 {
     freeMem(emu->mem);
@@ -26,16 +28,19 @@ void destroyEmulator(Emulator *emu)
 }
 
 
+/* Returns a pointer to the emulator's internal simulated memory array. */
 void **getMEM(Emulator *emu)
 {
     return emu->mem;
 }
 
+/* Retrieves the currently active Process Control Block (PCB) bound to the emulator. */
 PCB* getActivePCB(Emulator *emu)
 {
     return emu->activePCB;
 }
 
+/* Assigns a new active Process Control Block (PCB) to the emulator and returns it. */
 PCB* setActivePCB(Emulator *emu, PCB *pcb)
 {
     emu->activePCB = pcb;

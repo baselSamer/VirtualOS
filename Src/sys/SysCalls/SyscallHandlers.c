@@ -7,7 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 
-/* Print syscall handler */
+/* Handles the PRINT instruction, outputting a value or variable directly to the emulator console. */
 SyscallResultData syscall_print(
     Emulator *emu,
     kernal_state *state,
@@ -53,7 +53,7 @@ SyscallResultData syscall_print(
     return result;
 }
 
-/* Assign syscall handler */
+/* Handles the ASSIGN instruction, copying raw values, user input, or file data into a specified variable. */
 SyscallResultData syscall_assign(
     Emulator *emu,
     kernal_state *state,
@@ -72,7 +72,6 @@ SyscallResultData syscall_assign(
     
     int pid = getActivePCB(emu)->ProcessID;
 
-    /* If assigning from user input, require explicit semWait ownership */
     if (strcmp(instr->arg2, "input") == 0) {
         if (state->mutexes->ConsoleRead != pid) {
             state->flags->blocked = BLOCKED_CON_READ;
@@ -113,7 +112,6 @@ SyscallResultData syscall_assign(
             free(file_data);
         }
     } else {
-        /* Standard assignment */
         char *val = get_variable(emu, pid, instr->arg2);
         set_variable(emu, pid, instr->arg1, val && strlen(val) > 0 ? val : instr->arg2);
     }
@@ -123,7 +121,7 @@ SyscallResultData syscall_assign(
     return result;
 }
 
-/* Read file syscall handler */
+/* Handles the READ_FILE instruction, validating the file lock and loading file contents into a target memory buffer. */
 SyscallResultData syscall_readFile(
     Emulator *emu,
     kernal_state *state,
@@ -169,7 +167,7 @@ SyscallResultData syscall_readFile(
     return result;
 }
 
-/* Write file syscall handler */
+/* Handles the WRITE_FILE instruction, asserting file lock ownership and saving variable contents safely to disk. */
 SyscallResultData syscall_writeFile(
     Emulator *emu,
     kernal_state *state,
@@ -201,7 +199,6 @@ SyscallResultData syscall_writeFile(
         return result;
     }
 
-    /* Write file using emulator API */
     int write_result = write_raw_data(resolved_arg1, resolved_arg2, strlen(resolved_arg2));
 
     if (write_result != 0) {
@@ -214,7 +211,7 @@ SyscallResultData syscall_writeFile(
     return result;
 }
 
-/* Print from-to syscall handler */
+/* Handles the PRINT_FROM_TO instruction, securely locking the console and printing integers within a specified range. */
 SyscallResultData syscall_printFromTo(
     Emulator *emu,
     kernal_state *state,
@@ -262,7 +259,7 @@ SyscallResultData syscall_printFromTo(
     return result;
 }
 
-/* Semaphore wait syscall handler */
+/* Handles the SEM_WAIT instruction, attempting to acquire exclusive access to a resource or blocking the process if unavailable. */
 SyscallResultData syscall_semWait(
     Emulator *emu,
     kernal_state *state,
@@ -324,7 +321,7 @@ SyscallResultData syscall_semWait(
     return result;
 }
 
-/* Semaphore signal syscall handler */
+/* Handles the SEM_SIGNAL instruction, safely releasing a held resource lock and queuing waiting processes for wakeup. */
 SyscallResultData syscall_semSignal(
     Emulator *emu,
     kernal_state *state,

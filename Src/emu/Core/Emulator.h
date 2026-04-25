@@ -10,9 +10,13 @@ typedef struct PCB {
 
 typedef struct Emulator Emulator;
 
+/* Allocates and initializes a new Emulator structure and its simulated memory. */
 Emulator* createEmulator(void);
+/* Frees memory allocated for an Emulator and its internal resources. */
 void destroyEmulator(Emulator *emu);
+/* Retrieves the currently active Process Control Block (PCB) bound to the emulator. */
 PCB* getActivePCB(Emulator *emu);
+/* Assigns a new active Process Control Block (PCB) to the emulator and returns it. */
 PCB* setActivePCB(Emulator *emu, PCB *pcb);
 
 #endif

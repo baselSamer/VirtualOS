@@ -8,6 +8,7 @@ int g_use_gui_logs = 0;
 char g_gui_logs[40][256];
 int g_gui_log_count = 0;
 
+/* Writes a formatted log entry either to an internal GUI array or appends it to a "logs" file. */
 void emulatorLog(const char* format, ...) {
     FILE* log_file;
     va_list args;

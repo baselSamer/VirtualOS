@@ -3,19 +3,19 @@
 
 #include "../kernal.h"
 
-/* Start the GUI window in a separate thread */
+/* Spawns a background thread to launch and manage the graphical user interface. */
 void startGui(Emulator *emu, kernal_state *state);
 
-/* Trigger a repaint of the GUI with current state */
+/* Safely signals the GUI window to repaint itself with the latest simulator state. */
 void updateGui(void);
 
-/* Block until the user clicks "Step" in the GUI */
+/* Pauses execution and waits until the user clicks the "Step" button in the GUI. */
 void waitForGuiStep(void);
 
-/* Block until the user finishes the configuration wizard in GUI mode */
+/* Halts simulator start up until GUI configuration screens have been completed. */
 void waitForGuiConfig(void);
 
-/* Close the GUI window and clean up */
+/* Gracefully closes the GUI window and cleans up allocated graphical resources. */
 void stopGui(void);
 
 #endif

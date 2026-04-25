@@ -61,14 +61,16 @@ typedef struct kernal_state {
     int num_scheduled_processes;
     ArrivalConfig *scheduled_processes;
 
-    // Runtime execution snapshot for GUI/console status panels
     int current_running_pid;
     char current_running_command[64];
     
 } kernal_state;
 
+/* Main entry point logic configuring execution mode, initiating GUI or terminal output, and running the simulator. */
 int start(Emulator *emu);
+/* Starts the main execution loop of the kernel, handling ticks, process completion, and stepping. */
 int start_exution(Emulator *emu, kernal_state *state);
+/* Allocates and initializes a fresh flags structure for a process's current execution cycle. */
 int createNewFlags(kernal_state *state);
 
 #endif

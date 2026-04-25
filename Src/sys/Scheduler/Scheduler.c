@@ -1,5 +1,5 @@
 #include "Scheduler.h"
-#include "../kernal.h" // Include the clipboard so block/unblock can use it
+#include "../kernal.h"
 #include "../Memory/Memory.h" 
 #include "../../emu/Mem/Mem.h"
 #include "../../apps/systemApps/Console/console.h"
@@ -9,18 +9,20 @@
 #include <string.h>
 
 
-// --- INITIALIZATION ---
+/* Resets the queue parameters to correctly initialize an empty queue structure. */
 void initQueue(Queue* q) {
     q->front = 0;
     q->rear = -1;
     q->count = 0;
 }
 
-// --- QUEUE LOGIC ---
+
+/* Checks if a queue is entirely devoid of elements. */
 bool isEmpty(Queue* q) {
     return q->count == 0;
 }
 
+/* Appends a given Process ID to the back of the specified queue. */
 void enqueue(Queue* q, int process_id) {
     if (q->count == MAX_SIZE) {
         printToConsole("Error: Queue is full!");
@@ -31,6 +33,7 @@ void enqueue(Queue* q, int process_id) {
     q->count++;
 }
 
+/* Extracts and returns a Process ID from the front of the given queue. */
 int dequeue(Queue* q) {
     if (isEmpty(q)) return -1;
     
@@ -42,6 +45,7 @@ int dequeue(Queue* q) {
 }
 
 // Handles removal from general queue when unblocked by a specific resource
+/* Erases a designated Process ID from anywhere within an existing queue, leaving other members intact. */
 void removeFromGeneralQueue(Queue* q, int process_id) {
     if (isEmpty(q)) return;
 
@@ -54,6 +58,7 @@ void removeFromGeneralQueue(Queue* q, int process_id) {
     }
 }
 
+/* Converts a queue's contents into a printable string format for logging. */
 static void queueToText(const Queue *q, char *out, size_t out_size) {
     if (out_size == 0) return;
     if (q == NULL) {
@@ -90,6 +95,7 @@ static void queueToText(const Queue *q, char *out, size_t out_size) {
     }
 }
 
+/* Prints a snapshot characterizing the current status of all scheduling queues. */
 static void printQueueSnapshot(kernal_state *state, const char *event_name) {
     char l0[192], l1[192], l2[192], l3[192];
     char bin[192], bout[192], bfile[192], bgeneral[192];
@@ -112,6 +118,7 @@ static void printQueueSnapshot(kernal_state *state, const char *event_name) {
     printToConsole("  | QUEUES  | BlockedIn=%s  BlockedOut=%s  BlockedFile=%s  BlockedAll=%s", bin, bout, bfile, bgeneral);
 }
 
+/* Automatically unblocks resources held by a specific process if the auto-release flag is enabled. */
 static void autoReleaseProcessResources(kernal_state *state, int pid) {
     if (state == NULL || !state->auto_release_resources) {
         return;
@@ -142,9 +149,10 @@ static void autoReleaseProcessResources(kernal_state *state, int pid) {
     }
 }
 
-// --- RESOURCE MANAGEMENT (MUTEX LOGIC) ---
+
 
 // Adds the process to BOTH queues as requested by the rubric
+/* Inserts a block process to both its targeted resource queue and the general blocked overarching queue. */
 void blockProcess(kernal_state *state, int pid, Queue* resourceQueue) {
     char event[96];
     printToConsole("  | SCHED   | Process %d BLOCKED -> queues", pid);
@@ -156,17 +164,15 @@ void blockProcess(kernal_state *state, int pid, Queue* resourceQueue) {
 }
 
 // Removes from BOTH queues and puts back in ready queue
+/* Removes a process from its blocking resource queue and routes it to the suitable ready state queue. */
 void unblockProcess(kernal_state *state, Queue* resourceQueue) {
     if (isEmpty(resourceQueue)) return;
     char event[96];
 
-    // Pop from the specific resource line
     int pid = dequeue(resourceQueue);
     
-    // Fish it out of the general queue
     removeFromGeneralQueue(&state->general_blocked_queue, pid);
     
-    // For MLFQ, option can return to L0; default behavior keeps returning to L1.
     if (state->current_algo == SCHED_MLFQ) {
         if (state->mlfq_unblock_to_l0) {
             enqueue(&state->ready_queue, pid);
@@ -176,7 +182,6 @@ void unblockProcess(kernal_state *state, Queue* resourceQueue) {
             printToConsole("  | SCHED   | Process %d UNBLOCKED -> ready queue L1", pid);
         }
     } else {
-        // RR/HRRN use the single ready queue.
         enqueue(&state->ready_queue, pid);
         printToConsole("  | SCHED   | Process %d UNBLOCKED -> ready queue", pid);
     }
@@ -188,16 +193,16 @@ void unblockProcess(kernal_state *state, Queue* resourceQueue) {
 
 
 // --- INITIALIZATION FUNCTION ---
+/* Prompts the user through the initial wizard to configure system algorithms and load processes. */
 void initSchedulerConfig(Emulator *emu, kernal_state *state) {
     console(emu, state);
 }
 
+/* Dispatches ticking control to the active algorithm logic, evaluating newly arrived or unblocked processes. */
 void scheduler(Emulator *emu, kernal_state *state) {
     int current_time = state->current_tick_count;
 
-    // ==========================================
-    // PHASE 0: PROCESS UNBLOCK FLAGS
-    // ==========================================
+
     if (state->flags->unblocked_con_read) {
         unblockProcess(state, &state->mutexes->input_queue);
         state->flags->unblocked_con_read = 0;
@@ -211,9 +216,7 @@ void scheduler(Emulator *emu, kernal_state *state) {
         state->flags->unblocked_file = 0;
     }
 
-    // ==========================================
-    // PHASE 1: CHECK FOR NEW ARRIVALS (Common to all algorithms)
-    // ==========================================
+
     for (int i = 0; i < state->num_scheduled_processes; i++) {
         if (state->scheduled_processes[i].spawn_time == current_time) {
             printToConsole("  | SPAWN   | Loading Process %d...", state->scheduled_processes[i].pid);
@@ -228,9 +231,7 @@ void scheduler(Emulator *emu, kernal_state *state) {
         }
     }
 
-    // ==========================================
-    // PHASE 2: ROUTE TO THE SELECTED ALGORITHM
-    // ==========================================
+
     switch (state->current_algo) {
         case SCHED_RR:
             schedule_RR(emu, state);
@@ -247,11 +248,11 @@ void scheduler(Emulator *emu, kernal_state *state) {
     }
 }
 
+/* Evaluates scheduling under the Round Robin algorithm handling time quantum, resource blocking, and termination. */
 void schedule_RR(Emulator *emu, kernal_state *state) {
     PCB *active_pcb = getActivePCB(emu);
     int current_time = state->current_tick_count;
 
-    // 1. MANAGE THE RUNNING PROCESS
     if (active_pcb != NULL) {
         if (active_pcb->state == TERMINATED) {
             char event[96];
@@ -282,7 +283,6 @@ void schedule_RR(Emulator *emu, kernal_state *state) {
             active_pcb = NULL;
             state->rr_time_quantum_counter = 0;
         }
-        // Use the DYNAMIC time_quantum provided by the user!
         else {
             state->rr_time_quantum_counter++; 
             if (state->rr_time_quantum_counter >= state->time_quantum) {
@@ -300,13 +300,11 @@ void schedule_RR(Emulator *emu, kernal_state *state) {
         }
     }
 
-    // 2. PICK THE NEXT WINNER (Standard FIFO Queue for RR)
     if (active_pcb == NULL && !isEmpty(&state->ready_queue)) {
         int next_pid = dequeue(&state->ready_queue);
         int found_in_ram = 0;
         PCB *winning_pcb = NULL;
         
-        // Find them in RAM or Swap them in
         for (int i = 0; i < 40; i++) {
             struct MemoryWord *word = (struct MemoryWord*)readMem(emu, i);
             if (word != NULL && word->type == MEM_TYPE_PCB && word->content.pcb_data.ProcessID == next_pid) {
@@ -336,20 +334,16 @@ void schedule_RR(Emulator *emu, kernal_state *state) {
     }
 }
 
-// =================================================================
-// SKELETONS FOR YOUR OTHER ALGORITHMS
-// =================================================================
 
+
+/* Implements Highest Response Ratio Next scheduling, picking a non-preemptive optimal process dynamically. */
 void schedule_HRRN(Emulator *emu, kernal_state *state) {
     PCB *active_pcb = getActivePCB(emu);     
     int current_time = state->current_tick_count;
 
-    // ==========================================
-    // 1. MANAGE THE RUNNING PROCESS
-    // ==========================================
+  
     if (active_pcb != NULL) {
         
-        // CASE A: The Process Terminated
         if (active_pcb->state == TERMINATED) {
             char event[96];
             autoReleaseProcessResources(state, active_pcb->ProcessID);
@@ -363,7 +357,6 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
             printQueueSnapshot(state, event);
         }
         
-        // CASE B: The Process was Blocked by a Mutex
         else if (state->flags->blocked != BLOCKED_NONE) {
             printToConsole("  | HRRN    | Process %d blocked, evicting", active_pcb->ProcessID);
             active_pcb->state = BLOCKED;
@@ -381,14 +374,10 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
             active_pcb = NULL;
         }
         
-        // CASE C: Still Running
-        // We do NOTHING here! HRRN is Non-Preemptive. 
-        // We let the active process keep the CPU until it finishes or blocks.
+
     }
 
-    // ==========================================
-    // 2. PICK THE NEXT WINNER (Calculate HRRN)
-    // ==========================================
+ 
     if (active_pcb == NULL && !isEmpty(&state->ready_queue)) {
         
         float highest_ratio = -1.0;
@@ -411,7 +400,7 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
             }
 
             if (process_PCB != NULL) {
-                // 1. Find Arrival Time
+                //Find Arrival Time
                 int arrival_time = 0;
                 for (int j = 0; j < state->num_scheduled_processes; j++) {
                     if (state->scheduled_processes[j].pid == process_id) {
@@ -420,14 +409,12 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
                     }
                 }
 
-                // 2. Calculate Waiting and Execution Time
+                //Calculate Waiting and Execution Time
                 int waiting_time = current_time - arrival_time;
                 int execution_time = (process_PCB->bounds[3] - process_PCB->bounds[2]) + 1;
                 
-                // 3. Calculate Response Ratio (Must cast to float to preserve decimals!)
                 float response_ratio = (float)(waiting_time + execution_time) / (float)execution_time;
 
-                // 4. Check if it is the new High Score
                 if (response_ratio > highest_ratio) {
                     highest_ratio = response_ratio;
                     winner_pid = process_id;
@@ -436,22 +423,15 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
                 printToConsole("  | HRRN    | Warning: Process %d could not be loaded, skipping", process_id);
             }
 
-            // CRITICAL: Put the process back in line so we don't lose it!
             enqueue(&state->ready_queue, process_id);
         }
 
-        // ==========================================
-        // 3. LOAD THE WINNER INTO THE CPU
-        // ==========================================
+
         if (winner_pid != -1) {
-            // Notice how we are reusing the awesome function you built earlier!
-            // This safely extracts the winner from the middle of the ready queue.
             removeFromGeneralQueue(&state->ready_queue, winner_pid);
 
-            // Fetch the winner's PCB
             PCB *winning_pcb = findPCB_FromID(emu, winner_pid);
             
-            // Just in case the winner was swapped out to the disk, bring them back
             if (winning_pcb == NULL) {
                 printToConsole("  | HRRN    | Process %d not in RAM, swapping in", winner_pid);
                 swap_in(emu, winner_pid);
@@ -468,16 +448,14 @@ void schedule_HRRN(Emulator *emu, kernal_state *state) {
     }
 }
 
+/* Invokes Multi-Level Feedback Queue scheduling logic to promote or demote process priority through aging execution. */
 void schedule_MLFQ(Emulator *emu, kernal_state *state) {
     PCB *active_pcb = getActivePCB(emu);
     int current_time = state->current_tick_count;
 
-    // ==========================================
-    // 1. MANAGE THE RUNNING PROCESS
-    // ==========================================
+
     if (active_pcb != NULL) {
         
-        // CASE A: Terminated
         if (active_pcb->state == TERMINATED) {
             char event[96];
             autoReleaseProcessResources(state, active_pcb->ProcessID);
@@ -492,7 +470,6 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
             printQueueSnapshot(state, event);
         }
         
-        // CASE B: Blocked by a Mutex (I/O)
         else if (state->flags->blocked != BLOCKED_NONE) {
             printToConsole("  | MLFQ    | Process %d blocked, evicting", active_pcb->ProcessID);
             active_pcb->state = BLOCKED;
@@ -511,12 +488,9 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
             state->mlfq_time_quantum_counter = 0;
         }
         
-        // CASE C: Time Slice Check & DEMOTION
         else {
             state->mlfq_time_quantum_counter++;
 
-            // Calculate q = 2^i based on the queue level index
-            // Level 0 -> q=1, Level 1 -> q=2, Level 2 -> q=4
             int current_limit = 1 << state->active_process_queue_index; 
 
             if (state->mlfq_time_quantum_counter >= current_limit) {
@@ -527,7 +501,6 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
                 
                 active_pcb->state = READY;
                 
-                // Demotion Logic based on the index
                 if (state->active_process_queue_index == 0) {
                     enqueue(&state->ready_queue_1, active_pcb->ProcessID); 
                 } 
@@ -538,7 +511,6 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
                     enqueue(&state->ready_queue_3, active_pcb->ProcessID); 
                 }
                 else if (state->active_process_queue_index == 3) {
-                    // The last queue uses Round Robin, so it just goes to the back of the same line
                     enqueue(&state->ready_queue_3, active_pcb->ProcessID); 
                 }
                 
@@ -551,13 +523,10 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
         }
     }
 
-    // ==========================================
-    // 2. PICK THE NEXT WINNER (Strict Priority)
-    // ==========================================
+
     if (active_pcb == NULL) {
         int next_pid = -1;
         
-        // Cascading checks: Always prioritize from highest (0) to lowest (3)
         if (!isEmpty(&state->ready_queue)) {
             next_pid = dequeue(&state->ready_queue);
             state->active_process_queue_index = 0;
@@ -575,9 +544,7 @@ void schedule_MLFQ(Emulator *emu, kernal_state *state) {
             state->active_process_queue_index = 3;
         }
 
-        // ==========================================
-        // 3. LOAD THE WINNER INTO THE CPU
-        // ==========================================
+
         if (next_pid != -1) {
             PCB *winning_pcb = findPCB_FromID(emu, next_pid);
             

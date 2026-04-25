@@ -25,22 +25,26 @@ int total_tests = 0;
 int passed_tests = 0;
 int failed_tests = 0;
 
+/* Prints a formatted title block for a test section. */
 void print_section(const char *title) {
     printf("\n╔═══════════════════════════════════════════════════════╗\n");
     printf("║ %s\n", title);
     printf("╚═══════════════════════════════════════════════════════╝\n");
 }
 
+/* Prints a formatted header for an individual test case. */
 void print_test_header(const char *title) {
     printf("\n├─ %s\n", title);
 }
 
+/* Logs a passing test and increments counters. */
 void test_pass(const char *test_name) {
     printf("│  ✓ [PASS] %s\n", test_name);
     passed_tests++;
     total_tests++;
 }
 
+/* Logs a failing test with a reason and increments counters. */
 void test_fail(const char *test_name, const char *reason) {
     printf("│  ✗ [FAIL] %s\n│         → %s\n", test_name, reason);
     failed_tests++;
@@ -48,6 +52,7 @@ void test_fail(const char *test_name, const char *reason) {
 }
 
 /* Setup utilities */
+/* Allocates and initializes a fresh kernel state for testing. */
 kernal_state* setup_state() {
     kernal_state *state = malloc(sizeof(kernal_state));
     state->current_tick_count = 0;
@@ -60,6 +65,7 @@ kernal_state* setup_state() {
     return state;
 }
 
+/* Releases resources allocated for the test kernel state. */
 void cleanup_state(kernal_state *state) {
     if (state->flags) free(state->flags);
     if (state->mutexes) free(state->mutexes);
@@ -69,6 +75,7 @@ void cleanup_state(kernal_state *state) {
 /* ═════════════════════════════════════════════════════════════════ */
 /* SECTION 1: PARSER FUNCTIONALITY */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Validates the parsing capabilities for all instruction types. */
 void section_parser_functionality() {
     print_section("SECTION 1: PARSER FUNCTIONALITY");
     print_test_header("Parsing All 7 Instruction Types");
@@ -117,6 +124,7 @@ void section_parser_functionality() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* SECTION 2: SYSCALL DISPATCHER */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Verifies the dispatcher correctly routes parsed instructions. */
 void section_syscall_dispatcher() {
     print_section("SECTION 2: SYSCALL DISPATCHER");
     print_test_header("Dispatcher Routing & Execution");
@@ -155,6 +163,7 @@ void section_syscall_dispatcher() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* SECTION 3: RESOURCE MANAGEMENT (SEMAPHORES) */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tests synchronization primitives and file resource locking. */
 void section_resource_management() {
     print_section("SECTION 3: RESOURCE MANAGEMENT (SEMAPHORES)");
     print_test_header("Console Mutex Management");
@@ -215,6 +224,7 @@ void section_resource_management() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* SECTION 4: EXECUTION INTEGRATION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Checks the sequential execution sequence and process lifetime. */
 void section_execution_integration() {
     print_section("SECTION 4: EXECUTION INTEGRATION");
     print_test_header("PC Management & Process Flow");
@@ -272,6 +282,7 @@ void section_execution_integration() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* SECTION 5: ERROR HANDLING */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Ensures the system fails gracefully on invalid operations. */
 void section_error_handling() {
     print_section("SECTION 5: ERROR HANDLING");
     print_test_header("Invalid Instructions");
@@ -315,6 +326,7 @@ void section_error_handling() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* SECTION 6: REQUIREMENTS FROM TASKS.MD */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Cross-checks that all designated syscalls conform to standard. */
 void section_tasks_md_requirements() {
     print_section("SECTION 6: REQUIREMENTS FROM TEAM_INTERPRETER_SYSCALLS_TASKS.MD");
     print_test_header("All Required Syscalls Implemented");
@@ -361,6 +373,7 @@ void section_tasks_md_requirements() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* MAIN TEST RUNNER */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Entry point driving the comprehensive test suite execution. */
 int main() {
     printf("\n");
     printf("╔═══════════════════════════════════════════════════════╗\n");

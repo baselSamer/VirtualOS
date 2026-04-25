@@ -22,18 +22,21 @@ int total_tests = 0;
 int passed_tests = 0;
 int failed_tests = 0;
 
+/* Prints a formatted header for an individual test case. */
 void print_test_header(const char *title) {
     printf("\n┌─────────────────────────────────────────────────────────┐\n");
     printf("│ %s\n", title);
     printf("└─────────────────────────────────────────────────────────┘\n");
 }
 
+/* Logs a passing test and increments counters. */
 void test_pass(const char *test_name) {
     printf("  ✓ [PASS] %s\n", test_name);
     passed_tests++;
     total_tests++;
 }
 
+/* Logs a failing test with a reason and increments counters. */
 void test_fail(const char *test_name, const char *reason) {
     printf("  ✗ [FAIL] %s\n         Reason: %s\n", test_name, reason);
     failed_tests++;
@@ -43,6 +46,7 @@ void test_fail(const char *test_name, const char *reason) {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 1: PARSE PRINT INSTRUCTION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tests the parsing and validation of a PRINT instruction. */
 void test_parse_print() {
     print_test_header("TEST 1: Parse PRINT Instruction");
     
@@ -72,6 +76,7 @@ void test_parse_print() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 2: PARSE ASSIGN INSTRUCTION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tests the parsing and validation of an ASSIGN instruction. */
 void test_parse_assign() {
     print_test_header("TEST 2: Parse ASSIGN Instruction");
     
@@ -107,6 +112,7 @@ void test_parse_assign() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 3: PARSE READ FILE INSTRUCTION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tests the parsing and validation of a READFILE instruction. */
 void test_parse_readfile() {
     print_test_header("TEST 3: Parse READFILE Instruction");
     
@@ -136,6 +142,7 @@ void test_parse_readfile() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 4: PARSE WRITE FILE INSTRUCTION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tests the parsing and validation of a WRITEFILE instruction. */
 void test_parse_writefile() {
     print_test_header("TEST 4: Parse WRITEFILE Instruction");
     
@@ -171,6 +178,7 @@ void test_parse_writefile() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 5: PARSE PRINT FROM-TO INSTRUCTION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tests the parsing and validation of a PRINTFROMTO instruction. */
 void test_parse_printfromto() {
     print_test_header("TEST 5: Parse PRINTFROMTO Instruction");
     
@@ -206,6 +214,7 @@ void test_parse_printfromto() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 6: PARSE SEMWAIT INSTRUCTION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tests the parsing and validation of a SEMWAIT instruction. */
 void test_parse_semwait() {
     print_test_header("TEST 6: Parse SEMWAIT Instruction");
     
@@ -235,6 +244,7 @@ void test_parse_semwait() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 7: PARSE SEMSIGNAL INSTRUCTION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tests the parsing and validation of a SEMSIGNAL instruction. */
 void test_parse_semsignal() {
     print_test_header("TEST 7: Parse SEMSIGNAL Instruction");
     
@@ -264,6 +274,7 @@ void test_parse_semsignal() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 8: INVALID INSTRUCTION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Validates that unknown instructions map to OP_INVALID safely. */
 void test_invalid_instruction() {
     print_test_header("TEST 8: Parse Invalid Instruction");
     
@@ -287,6 +298,7 @@ void test_invalid_instruction() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 9: MISSING ARGUMENTS */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Rejects operations harboring insufficient arguments natively. */
 void test_missing_arguments() {
     print_test_header("TEST 9: Parse Instruction with Missing Arguments");
     
@@ -304,6 +316,7 @@ void test_missing_arguments() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 10: PARSE SCRIPT FROM BUFFER */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Parses a multi-line string containing instructions cleanly. */
 void test_parse_buffer() {
     print_test_header("TEST 10: Parse Script from Buffer");
     
@@ -330,6 +343,7 @@ void test_parse_buffer() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 11: PARSE SCRIPT WITH COMMENTS */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Truncates comments and strips whitespace during buffer parsing. */
 void test_parse_comments() {
     print_test_header("TEST 11: Parse Script with Comments & Empty Lines");
     
@@ -355,6 +369,7 @@ void test_parse_comments() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 12: VALIDATE INSTRUCTION */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Unit tests the internal instruction validity checker helper. */
 void test_validate_instruction() {
     print_test_header("TEST 12: validateInstruction() Function");
     
@@ -382,6 +397,7 @@ void test_validate_instruction() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* MAIN TEST RUNNER */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Standard executable bootstrap enumerating parser verifications. */
 int main() {
     printf("\n");
     printf("╔═══════════════════════════════════════════════════════╗\n");

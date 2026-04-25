@@ -5,6 +5,7 @@
 
 struct kernal_state;
 
+/* Handles user interaction to configure the scheduler algorithms and processes during startup. */
 int console(Emulator *emu, struct kernal_state *state);
 
 #endif

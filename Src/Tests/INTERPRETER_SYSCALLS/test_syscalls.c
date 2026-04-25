@@ -25,18 +25,21 @@ int passed_tests = 0;
 int failed_tests = 0;
 
 /* Test Helper Functions */
+/* Prints a formatted header for an individual test case. */
 void print_test_header(const char *title) {
     printf("\n┌─────────────────────────────────────────────────────────┐\n");
     printf("│ %s\n", title);
     printf("└─────────────────────────────────────────────────────────┘\n");
 }
 
+/* Logs a passing test and increments counters. */
 void test_pass(const char *test_name) {
     printf("  ✓ [PASS] %s\n", test_name);
     passed_tests++;
     total_tests++;
 }
 
+/* Logs a failing test with a reason and increments counters. */
 void test_fail(const char *test_name, const char *reason) {
     printf("  ✗ [FAIL] %s\n         Reason: %s\n", test_name, reason);
     failed_tests++;
@@ -44,6 +47,7 @@ void test_fail(const char *test_name, const char *reason) {
 }
 
 /* Setup minimal kernal_state */
+/* Allocates and initializes a minimalistic test kernel state. */
 kernal_state* create_test_state() {
     kernal_state *state = malloc(sizeof(kernal_state));
     state->current_tick_count = 0;
@@ -56,6 +60,7 @@ kernal_state* create_test_state() {
     return state;
 }
 
+/* Safely deallocates a test kernel state entity. */
 void free_test_state(kernal_state *state) {
     if (state->flags) free(state->flags);
     if (state->mutexes) free(state->mutexes);
@@ -65,6 +70,7 @@ void free_test_state(kernal_state *state) {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 1: SYSCALL_RESULT ENUM */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tests sanity of defined syscall error enum macros. */
 void test_syscall_result_enum() {
     print_test_header("TEST 1: SyscallResult Enum Values");
     
@@ -80,6 +86,7 @@ void test_syscall_result_enum() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 2: PRINT SYSCALL */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Validates independent execution of the PRINT system call handler. */
 void test_print_syscall() {
     print_test_header("TEST 2: Print Syscall Handler");
     
@@ -127,6 +134,7 @@ void test_print_syscall() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 3: ASSIGN SYSCALL */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Validates independent execution of the ASSIGN system call handler. */
 void test_assign_syscall() {
     print_test_header("TEST 3: Assign Syscall Handler");
     
@@ -167,6 +175,7 @@ void test_assign_syscall() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 4: SEMAPHORE WAIT - SUCCESS */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Validates the non-blocking fast path for SEMWAIT operations. */
 void test_semwait_success() {
     print_test_header("TEST 4: SemWait - Resource Available (SUCCESS)");
     
@@ -208,6 +217,7 @@ void test_semwait_success() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 5: SEMAPHORE WAIT - BLOCKED */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Validates the blocking state transition for SEMWAIT operations. */
 void test_semwait_blocked() {
     print_test_header("TEST 5: SemWait - Resource Unavailable (BLOCKED)");
     
@@ -249,6 +259,7 @@ void test_semwait_blocked() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 6: SEMAPHORE SIGNAL */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Validates resource liberation mechanisms within SEMSIGNAL handler. */
 void test_semsignal() {
     print_test_header("TEST 6: SemSignal - Release Resource");
     
@@ -290,6 +301,7 @@ void test_semsignal() {
 /* ═══════════════��═════════════════════════════════════════════════ */
 /* TEST 7: FILE MUTEX OPERATIONS */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Evaluates internal discrete file mutex checks and manipulation bounds. */
 void test_file_mutex() {
     print_test_header("TEST 7: File Mutex - Acquire, Check, Release");
     
@@ -339,6 +351,7 @@ void test_file_mutex() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 8: READ FILE SYSCALL */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tests dispatched IO subsystem interactions for READFILE routines. */
 void test_readfile_syscall() {
     print_test_header("TEST 8: ReadFile Syscall");
     
@@ -376,6 +389,7 @@ void test_readfile_syscall() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 9: WRITE FILE SYSCALL */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Tests dispatched IO subsystem interactions for WRITEFILE routines. */
 void test_writefile_syscall() {
     print_test_header("TEST 9: WriteFile Syscall");
     
@@ -412,6 +426,7 @@ void test_writefile_syscall() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* TEST 10: PRINT FROM-TO SYSCALL */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Iterative execution loop boundaries validation for PRINTFROMTO calls. */
 void test_printfromto_syscall() {
     print_test_header("TEST 10: PrintFromTo Syscall");
     
@@ -445,6 +460,7 @@ void test_printfromto_syscall() {
 /* ═════════════════════════════════════════════════════════════════ */
 /* MAIN TEST RUNNER */
 /* ═════════════════════════════════════════════════════════════════ */
+/* Test orchestration engine iterating configured system verification vectors. */
 int main() {
     printf("\n");
     printf("╔═══════════════════════════════════════════════════════╗\n");

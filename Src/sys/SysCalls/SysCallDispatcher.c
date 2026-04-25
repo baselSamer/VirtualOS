@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Dispatcher routes instruction to appropriate handler */
+/* Routes an incoming instruction to the appropriate syscall handler based on its opcode and returns the result. */
 SyscallResultData dispatchSyscall(
     Emulator *emu,
     kernal_state *state,
@@ -22,10 +22,8 @@ SyscallResultData dispatchSyscall(
         return result;
     }
 
-    /* Create new flags for this syscall */
     createNewFlags(state);
 
-    /* Route to appropriate handler based on opcode */
     switch (instr->opcode) {
         case OP_PRINT:
             result = syscall_print(emu, state, instr);
@@ -71,7 +69,7 @@ SyscallResultData dispatchSyscall(
     return result;
 }
 
-/* Free syscall result data */
+/* Frees any dynamically allocated output or data buffers contained within a SyscallResultData struct. */
 void freeSyscallResult(SyscallResultData *result) {
     if (result == NULL) {
         return;
@@ -85,6 +83,3 @@ void freeSyscallResult(SyscallResultData *result) {
         result->data = NULL;
     }
 }
-
-/* Check if process has access to file */
-// Removed, using hasFileMutex from Mutex.h instead

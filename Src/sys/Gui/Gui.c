@@ -843,6 +843,7 @@ static void drawSystemTab(HDC hdc, RECT *client) {
 }
 
 /* ========== TAB: SYSTEM LOGS (SIMULATION) ========== */
+/* Renders the system execution logs into the designated GUI tab, handling scroll state and visibility bounds. */
 static void drawLogsTab(HDC hdc, RECT *client) {
     char buf[128];
     int x = GRID_X;
@@ -895,6 +896,7 @@ static void drawLogsTab(HDC hdc, RECT *client) {
 }
 
 /* ========== STATUS BAR ========== */
+/* Renders the global status bar at the bottom of the window, detailing memory bounds or process limits when hovered. */
 static void drawStatusBar(HDC hdc, RECT *client) {
     int y = client->bottom - STATUS_H;
     
@@ -987,6 +989,7 @@ static void drawStatusBar(HDC hdc, RECT *client) {
 }
 
 /* ========== WM_PAINT MAIN ========== */
+/* Orchestrates the entire UI paint cycle, double buffering drawing commands before blasting the rect to the screen. */
 static void paintWindow(HWND hwnd) {
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hwnd, &ps);
@@ -1099,6 +1102,7 @@ static void paintWindow(HWND hwnd) {
 }
 
 /* ========== CONTROLLER LOGIC ========== */
+/* Validates configuration wizard inputs for algorithms and transitions the window to the subsequent process load step. */
 static void onConfigAlgoNext(void) {
     int algo_idx = SendMessage(hCboAlgo, CB_GETCURSEL, 0, 0);
     g_cfg_algo = (algo_idx == 0) ? SCHED_RR : (algo_idx == 1) ? SCHED_HRRN : SCHED_MLFQ;
@@ -1136,6 +1140,7 @@ static void onConfigAlgoNext(void) {
     InvalidateRect(g_hwnd, NULL, TRUE);
 }
 
+/* Preserves process configuration inputs and redraws the UI for editing the target process index in the wizard. */
 static void onConfigProcsSwitch(int processIndex) {
     // Save current proc data
     char buf[256];
@@ -1150,6 +1155,7 @@ static void onConfigProcsSwitch(int processIndex) {
     InvalidateRect(g_hwnd, NULL, TRUE);
 }
 
+/* Finalizes configuration inputs, propagates state to the kernel, and fires the unblocking event to commence simulation. */
 static void onConfigStartSim(void) {
     // Save last proc data
     char buf[256];
@@ -1195,6 +1201,7 @@ static void onConfigStartSim(void) {
 }
 
 /* ========== WINDOW PROCEDURE ========== */
+/* Handles asynchronous Window messages routing paint updates, input events, and destruction lifecycle hooks. */
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_CREATE:
@@ -1372,6 +1379,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 /* ========== GUI THREAD ========== */
+/* Initializer entry point for the GUI thread that constructs the Win32 context, font families, and blocking message loop. */
 static DWORD WINAPI guiThreadFunc(LPVOID param) {
     (void)param;
     
@@ -1425,6 +1433,7 @@ static DWORD WINAPI guiThreadFunc(LPVOID param) {
 
 /* ========== PUBLIC API ========== */
 
+/* Initializes state variables, hooks into the emulator event stream, and launches the detached GUI presentation thread. */
 void startGui(Emulator *emu, kernal_state *state) {
     g_emu = emu;
     g_state = state;
@@ -1455,6 +1464,7 @@ void startGui(Emulator *emu, kernal_state *state) {
     Sleep(300);
 }
 
+/* Dispatches an invalidation request to asynchronously invoke the windowing system UI paint refresh. */
 void updateGui(void) {
     if (g_hwnd != NULL) {
         InvalidateRect(g_hwnd, NULL, FALSE);
@@ -1462,6 +1472,7 @@ void updateGui(void) {
     }
 }
 
+/* Halts the main dispatcher thread execution until a step confirmation button press is captured by the interface. */
 void waitForGuiStep(void) {
     if (g_step_event != NULL) {
         updateGui();
@@ -1469,6 +1480,7 @@ void waitForGuiStep(void) {
     }
 }
 
+/* Pauses execution while the user interfaces with the configuration wizard to yield complete scheduled process inputs. */
 void waitForGuiConfig(void) {
     if (g_config_done_event != NULL) {
         // Main thread blocking until GUI config is completely done.
@@ -1476,6 +1488,7 @@ void waitForGuiConfig(void) {
     }
 }
 
+/* Orders the teardown and destruction of the Win32 window classes, closes events, and releases thread resources. */
 void stopGui(void) {
     g_running = 0;
     if (g_hwnd != NULL) {

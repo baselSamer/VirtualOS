@@ -7,16 +7,19 @@
 
 /* ===== File Mutex (Universal Single Resource) ===== */
 
+/* Returns true if the universal file mutex is currently locked by a process. */
 bool FileMutexTaken(kernal_state *state) {
     Mutex *mutex = state->mutexes;
     return mutex->File != -1;
 }
 
+/* Returns true if the active process associated with the emulator currently holds the file mutex. */
 bool hasFileMutex(kernal_state *state, Emulator *emu) {
     Mutex *mutex = state->mutexes;
     return mutex->File == getActivePCB(emu)->ProcessID;
 }
 
+/* Attempts to acquire the file mutex for the active process. Returns true on success, false if blocked. */
 bool acquireFileMutex(kernal_state *state, Emulator *emu) {
     Mutex *mutex = state->mutexes;
     int pid = getActivePCB(emu)->ProcessID;
@@ -33,6 +36,7 @@ bool acquireFileMutex(kernal_state *state, Emulator *emu) {
     return true;
 }
 
+/* Releases the file mutex if owned by the active process. Returns true on success or false otherwise. */
 bool releaseFileMutex(kernal_state *state, Emulator *emu) {
     Mutex *mutex = state->mutexes;
     int pid = getActivePCB(emu)->ProcessID;
@@ -47,11 +51,13 @@ bool releaseFileMutex(kernal_state *state, Emulator *emu) {
 
 /* ===== Console Read Mutex ===== */
 
+/* Returns true if the console read mutex is currently locked by a process. */
 bool ConsoleReadMutexTaken(kernal_state *state) {
     Mutex *mutex = state->mutexes;
     return mutex->ConsoleRead != -1;
 }
 
+/* Attempts to acquire the console read mutex for the active process. Returns true on success, false if blocked. */
 bool acquireConsoleReadMutex(kernal_state *state, Emulator *emu) {
     Mutex *mutex = state->mutexes;
     if (mutex->ConsoleRead == getActivePCB(emu)->ProcessID) {
@@ -67,6 +73,7 @@ bool acquireConsoleReadMutex(kernal_state *state, Emulator *emu) {
     return true;
 }
 
+/* Releases the console read mutex if owned by the active process. Returns true on success or false otherwise. */
 bool releaseConsoleReadMutex(kernal_state *state, Emulator *emu) {
     Mutex *mutex = state->mutexes;
     if (mutex->ConsoleRead == getActivePCB(emu)->ProcessID) {
@@ -78,6 +85,7 @@ bool releaseConsoleReadMutex(kernal_state *state, Emulator *emu) {
     return false;
 }
 
+/* Attempts to acquire the console write mutex for the active process. Returns true on success, false if blocked. */
 bool acquireConsoleWriteMutex(kernal_state *state, Emulator *emu) {
     Mutex *mutex = state->mutexes;
     if (mutex->ConsoleWrite == getActivePCB(emu)->ProcessID) {
@@ -93,6 +101,7 @@ bool acquireConsoleWriteMutex(kernal_state *state, Emulator *emu) {
     return true;
 }
 
+/* Releases the console write mutex if owned by the active process. Returns true on success or false otherwise. */
 bool releaseConsoleWriteMutex(kernal_state *state, Emulator *emu) {
     Mutex *mutex = state->mutexes;
     if (mutex->ConsoleWrite == getActivePCB(emu)->ProcessID) {
@@ -104,16 +113,19 @@ bool releaseConsoleWriteMutex(kernal_state *state, Emulator *emu) {
     return false;
 }
 
+/* Returns true if the active process associated with the emulator currently holds the console read mutex. */
 bool hasConsoleReadMutex(kernal_state *state, Emulator *emu) {
     Mutex *mutex = state->mutexes;
     return mutex->ConsoleRead == getActivePCB(emu)->ProcessID;
 }
 
+/* Returns true if the active process associated with the emulator currently holds the console write mutex. */
 bool hasConsoleWriteMutex(kernal_state *state, Emulator *emu) {
     Mutex *mutex = state->mutexes;
     return mutex->ConsoleWrite == getActivePCB(emu)->ProcessID;
 }
 
+/* Returns true if the console write mutex is currently locked by a process. */
 bool ConsoleWriteMutexTaken(kernal_state *state) {
     Mutex *mutex = state->mutexes;
     return mutex->ConsoleWrite != -1;

@@ -3,17 +3,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Allocates and initializes a fresh flags structure for a process's current execution cycle. */
 int createNewFlags(kernal_state *state) {
     if (state == NULL) {
         return -1;
     }
     
-    /* Free existing flags if any */
     if (state->flags != NULL) {
         free(state->flags);
     }
     
-    /* Allocate new flags */
     flags *new_flags = malloc(sizeof(flags));
     if (new_flags == NULL) {
         emulatorLog("[FLAGS] error=allocation_failed");

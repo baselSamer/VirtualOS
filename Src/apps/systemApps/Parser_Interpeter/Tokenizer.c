@@ -3,7 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 
-/* Tokenize a line into space-separated tokens */
+/* Extracts and returns a dynamically allocated token from an input string at a given 0-indexed position. */
 char* tokenize(const char *input, int token_index) {
     if (input == NULL || token_index < 0) {
         return NULL;
@@ -38,7 +38,7 @@ char* tokenize(const char *input, int token_index) {
     }
 }
 
-/* Helper function to trim whitespace from string */
+/* Removes leading and trailing whitespace characters from a string, returning a newly allocated string. */
 static char* trim_whitespace(char *str) {
     if (str == NULL) {
         return NULL;
@@ -62,7 +62,7 @@ static char* trim_whitespace(char *str) {
     return trimmed;
 }
 
-/* Helper function to count tokens in a line */
+/* Counts and returns the total number of whitespace-separated tokens present within a string. */
 static int count_tokens(const char *line) {
     if (line == NULL) {
         return 0;

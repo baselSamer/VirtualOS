@@ -6,7 +6,7 @@
 #include "../../../sys/kernal.h"
 #include "../../../emu/Core/Emulator.h"
 
-/* Cross-platform re-entrant tokenization helper. */
+/* Tokenizes a string similarly to strtok_r, maintaining state between calls securely across platforms. */
 static inline char* parser_strtok(char *str, const char *delim, char **saveptr) {
 #ifdef _WIN32
     char *start;
@@ -63,12 +63,12 @@ typedef enum {
 /* Parsed instruction structure */
 typedef struct {
     Opcode opcode;
-    char *arg1;           /* First argument (variable name, file path, resource name, or value) */
-    char *arg2;           /* Second argument (for operations requiring two arguments) */
-    char *arg3;           /* Third argument (for nested operations like assign readFile) */
-    ResourceType resource; /* Resource type for sem operations */
-    int valid;            /* Flag indicating if instruction was parsed successfully */
-    int line_number;      /* Line number in script for error reporting */
+    char *arg1;           
+    char *arg2;           
+    char *arg3;           
+    ResourceType resource; 
+    int valid;            
+    int line_number;      
 } Instruction;
 
 /* Parser context structure */
@@ -80,11 +80,20 @@ typedef struct {
 } ParserContext;
 
 /* Function prototypes */
+
+/* Parses a single text line into an Instruction struct, extracting its opcode and arguments. */
 Instruction parseInstruction(const char *line, int line_number);
+
+/* Frees memory allocated for arguments within the instruction struct. */
 void freeInstruction(Instruction *instr);
+
+/* Tokenizes an input string and returns a dynamically allocated token at the specified zero-based index. */
 char* tokenize(const char *input, int token_index);
+
+/* Checks if the given instruction is marked as valid after parsing. */
 int validateInstruction(Instruction *instr);
 
+/* Parses a line into an instruction, executes it via SysCallDispatcher, and returns whether process is blocked. */
 int parse_and_execute(const char* code_line, int pid, kernal_state *state, Emulator *emu);
 
 #endif /* PROJECT_ETHOS_PARSER_H */

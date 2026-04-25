@@ -7,10 +7,12 @@
 
 static int g_console_output_passthrough = 1;
 
+/* Toggles whether printToConsole outputs to stdout (1) or logs to the emulator (0). */
 void setConsoleOutputPassthrough(int enabled) {
     g_console_output_passthrough = enabled ? 1 : 0;
 }
 
+/* Prints formatted output to either stdout or the emulator log depending on passthrough state. */
 void printToConsole(const char* format, ...) {
     char buffer[1024];
     va_list args;
@@ -25,6 +27,7 @@ void printToConsole(const char* format, ...) {
     }
 }
 
+/* Bypasses the emulator log entirely and prints directly to standard output. */
 void printToMainConsole(const char* format, ...) {
     char buffer[1024];
     va_list args;
@@ -34,6 +37,7 @@ void printToMainConsole(const char* format, ...) {
     printf("%s\n", buffer);
 }
 
+/* Prints an input prompt format directly to standard output. */
 void printInputPrompt(const char* format, ...) {
     char buffer[1024];
     va_list args;
@@ -43,6 +47,7 @@ void printInputPrompt(const char* format, ...) {
     printf("%s\n", buffer);
 }
 
+/* Reads formatted input securely from standard input using vscanf. */
 void readFromConsole(const char* format, ...) {
     va_list args;
     va_start(args, format);
@@ -50,6 +55,7 @@ void readFromConsole(const char* format, ...) {
     va_end(args);
 }
 
+/* Reads dynamically sized standard input strings, omitting leading whitespace. */
 static int read_dynamic_string(char** out_str) {
     int ch;
     size_t cap = 32;
@@ -89,6 +95,7 @@ static int read_dynamic_string(char** out_str) {
     return 0;
 }
 
+/* Reads formatted input and dynamically allocates memory for the result based on the format specifier. */
 int readFromConsoleAlloc(const char* format, void** out_ptr) {
     size_t fmt_len;
     char spec;

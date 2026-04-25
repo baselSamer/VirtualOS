@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Handles user interaction to configure the scheduler algorithms and processes during startup. */
 int console(Emulator *emu, kernal_state *state) {
     printToConsole("+--------------------------------------+");
     printToConsole("|       SCHEDULER CONFIGURATION        |");
@@ -27,7 +28,6 @@ int console(Emulator *emu, kernal_state *state) {
     printToConsole("  >> Algorithm: %s", algo_name);
     printToConsole("");
 
-    // Only ask for Time Quantum if the algorithm actually uses it
     if (state->current_algo == SCHED_RR) {
         printToConsole("  Enter Time Quantum: ");
         readFromConsole("%d", &state->time_quantum);
@@ -63,7 +63,6 @@ int console(Emulator *emu, kernal_state *state) {
     printToConsole("  >> MLFQ unblock returns to L0: %s", state->mlfq_unblock_to_l0 ? "enabled" : "disabled");
     printToConsole("");
 
-    // Ask for the number of processes
     printToConsole("  Enter number of processes: ");
     int num_processes;
     readFromConsole("%d", &num_processes);
@@ -71,10 +70,8 @@ int console(Emulator *emu, kernal_state *state) {
     printToConsole("  >> Processes: %d", num_processes);
     printToConsole("");
 
-    // Allocate the scheduled_processes array dynamically
     state->scheduled_processes = (ArrivalConfig*)malloc(num_processes * sizeof(ArrivalConfig));
 
-    // For each process, collect arrival time and file path; PID is auto-generated
     for (int i = 0; i < num_processes; i++) {
         int pid = i + 1;
 
@@ -98,7 +95,6 @@ int console(Emulator *emu, kernal_state *state) {
         printToConsole("");
     }
 
-    // Initialize scheduler counters
     state->rr_time_quantum_counter = 0;
     state->mlfq_time_quantum_counter = 0;
     state->active_process_queue_index = 0;

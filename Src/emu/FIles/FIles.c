@@ -1,5 +1,6 @@
 #include "Files.h"
 
+/* Reads the entire binary contents of a file into a dynamically allocated buffer and returns the file size. */
 size_t read_raw_data(const char* file_path, void** out_ptr) {
     FILE* file = fopen(file_path, "rb");
     if (!file) {
@@ -32,6 +33,7 @@ size_t read_raw_data(const char* file_path, void** out_ptr) {
     return size; 
 }
 
+/* Writes a specific amount of binary data to a file, returning 0 on success. */
 int write_raw_data(const char* file_path, const void* data, size_t size) {
     if (!data && size > 0) return -1;
 

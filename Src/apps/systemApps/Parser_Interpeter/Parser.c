@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 
+/* Checks if a given line is NULL, empty, or consists entirely of whitespace characters. */
 static int isEmptyInstructionLine(const char *line) {
     if (line == NULL) {
         return 1;
@@ -20,7 +21,7 @@ static int isEmptyInstructionLine(const char *line) {
     return 1;
 }
 
-/* Helper function to parse resource type */
+/* Converts a string representation of a resource to its corresponding ResourceType enum. */
 static ResourceType parseResourceType(const char *resource_str) {
     if (resource_str == NULL) {
         return RES_INVALID;
@@ -37,7 +38,7 @@ static ResourceType parseResourceType(const char *resource_str) {
     return RES_INVALID;
 }
 
-/* Helper function to duplicate a string */
+/* Dynamically allocates memory and creates a duplicate of the given string. */
 static char* string_dup(const char *str) {
     if (str == NULL) {
         return NULL;
@@ -49,7 +50,7 @@ static char* string_dup(const char *str) {
     return dup;
 }
 
-/* Main instruction parser */
+/* Parses a single text line into an Instruction struct, extracting its opcode and arguments. */
 Instruction parseInstruction(const char *line, int line_number) {
     Instruction instr;
     instr.opcode = OP_INVALID;
@@ -197,7 +198,7 @@ Instruction parseInstruction(const char *line, int line_number) {
     return instr;
 }
 
-/* Validate parsed instruction */
+/* Checks if the given instruction is marked as valid after parsing. */
 int validateInstruction(Instruction *instr) {
     if (instr == NULL) {
         return 0;
@@ -205,7 +206,7 @@ int validateInstruction(Instruction *instr) {
     return instr->valid;
 }
 
-/* Free instruction resources */
+/* Frees memory allocated for arguments within the instruction struct. */
 void freeInstruction(Instruction *instr) {
     if (instr == NULL) {
         return;
@@ -226,6 +227,7 @@ void freeInstruction(Instruction *instr) {
 
 #include "../../../sys/SysCalls/SysCallDispatcher.h"
 
+/* Parses a line into an instruction, executes it via SysCallDispatcher, and returns whether process is blocked. */
 int parse_and_execute(const char* code_line, int pid, kernal_state *state, Emulator *emu) {
     printToConsole("  | PCB: %-3d | Command: %s", pid, code_line);
     

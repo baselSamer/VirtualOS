@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
+/* Converts a process 'State' enum to a string. */
 static const char* pcbStateToStr(enum State state) {
     switch (state) {
         case CREATED: return "CREATED";
@@ -20,6 +21,7 @@ static const char* pcbStateToStr(enum State state) {
     }
 }
 
+/* Searches memory for a PCB that owns the specified memory slot, returning its PID if found. */
 static int findOwnerPidForSlot(Emulator *emu, int slot) {
     for (int i = 0; i < 40; i++) {
         struct MemoryWord *word = (struct MemoryWord*)readMem(emu, i);
@@ -34,6 +36,7 @@ static int findOwnerPidForSlot(Emulator *emu, int slot) {
     return -1;
 }
 
+/* Prints a snapshot of the current physical memory allocation status. */
 static void printMemorySnapshot(Emulator *emu) {
     printToConsole("  | MEMORY  | Snapshot (40 slots)");
     for (int i = 0; i < 40; i++) {
@@ -70,13 +73,14 @@ static void printMemorySnapshot(Emulator *emu) {
     }
 }
 
+/* Blocks execution until the Enter key is pressed by the user. */
 static void waitForEnter(void) {
     int c;
     while ((c = getchar()) != '\n' && c != EOF);
     getchar();
 }
 
-/* Execute single instruction from current pc */
+/* Executes a single instruction for the currently active process and updates its state and program counter. */
 void execute(Emulator *emu, kernal_state *state) {
     scheduler(emu, state);
 
@@ -114,6 +118,7 @@ void execute(Emulator *emu, kernal_state *state) {
 
 }
 
+/* Starts the main execution loop of the kernel, handling ticks, process completion, and stepping. */
 int start_exution(Emulator *emu, kernal_state *state) {
     emulatorLog("[KERNEL] Execution loop started");
 
